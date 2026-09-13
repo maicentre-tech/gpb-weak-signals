@@ -26,8 +26,10 @@ Evidence-first платформа раннего обнаружения науч
 | Коннекторы PatentsView / GH Archive / CORDIS | не начаты |
 | Entity resolution | готово (детерминированные сигналы; семантика ждёт embedding-модели) |
 | Агрегация метрик + scoring §24.1–24.20 | готово, проходит насквозь до ранжирования |
-| RAG + claim verifier | не начат |
-| API + frontend | не начат |
+| RAG: retrieval, карточки, claim verifier | готово |
+| FastAPI (§10) | готово, 9 эндпоинтов |
+| Frontend | не начат |
+| LLM-генерация карточек | шлюз написан, локальной модели в окружении нет |
 
 Сквозной путь работает: `ingest → mapping → aggregate → scoring → ранжирование`.
 Абсолютные значения баллов пока не показательны — популяция для нормализации
@@ -71,7 +73,9 @@ python scripts/run_mapping.py
 python scripts/audit_coverage.py
 python scripts/build_peer_groups.py
 python scripts/run_scoring.py --as-of 2026-09-13
+python scripts/generate_card.py "Agentic"
 pytest
+uvicorn eti.api.app:app --reload        # http://localhost:8000/docs
 ```
 
 ## Устройство
@@ -84,7 +88,7 @@ src/eti/
   ingestion/     общая обвязка: идемпотентность, лимиты, чекпоинты, DLQ
   scoring/       формулы §24 — чистые функции, без обращений к БД
   ontology/      entity resolution
-  rag/           evidence retrieval и claim verifier
+  rag/           evidence retrieval, сборка карточек, claim verifier
   api/           FastAPI
 ```
 

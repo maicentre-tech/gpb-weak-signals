@@ -345,6 +345,9 @@ async def compute_scores(
     for technology_id, raw in raw_by_id.items():
         scores: dict[str, float | None] = {}
         statuses: dict[str, str] = {}
+        # Минимум по признакам, а не среднее: если хоть один признак
+        # нормирован по одному объекту, его балл бессмыслен, и знать об
+        # этом важнее, чем видеть благополучную среднюю величину.
         used_population = population_size
 
         for name in simple_features:
