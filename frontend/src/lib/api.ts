@@ -119,6 +119,50 @@ export interface SourceStatus {
   blocked_reason: string | null;
 }
 
+export interface QueueItem {
+  mapping_id: string;
+  document_id: string;
+  document_title: string | null;
+  document_abstract: string | null;
+  document_url: string | null;
+  source_code: string;
+  published_at: string | null;
+  technology_id: string;
+  technology_name: string;
+  mapping_score: number;
+  mapping_method: string;
+  mapping_status: string;
+  score_components: {
+    components?: Record<string, number>;
+    effective_weights?: Record<string, number>;
+    evidence_coverage?: number;
+    reason?: string;
+  };
+  evidence_coverage: number | null;
+  days_in_queue: number;
+}
+
+export interface QueueResponse {
+  total: number;
+  items: QueueItem[];
+  stats: Record<string, number>;
+}
+
+export interface TechnologyOption {
+  technology_id: string;
+  canonical_name: string;
+  canonical_name_ru: string | null;
+  status: string;
+}
+
+export interface ReviewStats {
+  mappings_by_status: Record<string, number>;
+  feedback_by_decision: Record<string, number>;
+  reviewers: number;
+  oldest_pending_at: string | null;
+  note: string;
+}
+
 export function isJob(value: QueryResponse | JobResponse): value is JobResponse {
   return "job_id" in value;
 }
@@ -146,4 +190,28 @@ export const api = {
   timeline: (id: string) => request<TimelinePoint[]>(`/trends/${id}/timeline`),
   sources: (id: string) => request<SourceReference[]>(`/trends/${id}/sources`),
   sourceStatus: () => request<SourceStatus[]>("/sources/status"),
+
+  reviewQueue: (limit = 25, offset = 0) =>
+    request<QueueResponse>(`/review/queue?limit=${limit}&offset=${offset}`),
+  reviewTechnologies: () => request<TechnologyOption[]>("/review/technologies"),
+  reviewStats: () => request<ReviewStats>("/review/stats"),
+  reviewDecide: (
+    mappingId: string,
+    decision: "confirm" | "reject" | "reassign",
+    newTechnologyId?: string,
+    reason?: string,
+  ) =>
+    request<{ ok: boolean; message: string }>(`/review/mappings/${mappingId}/decision`, {
+      method: "POST",
+      body: JSON.stringify({
+        decision,
+        new_technology_id: newTechnologyId ?? null,
+        reason: reason ?? null,
+      }),
+    }),
+  reviewLabel: (technologyId: string, label: string, reason?: string) =>
+    request<{ ok: boolean; message: string }>(
+      `/review/technologies/${technologyId}/label`,
+      { method: "POST", body: JSON.stringify({ label, reason: reason ?? null }) },
+    ),
 };

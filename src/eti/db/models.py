@@ -492,7 +492,9 @@ class TechnologyLineage(Base):
     technology_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("technologies.id", ondelete="CASCADE"), nullable=False
     )
-    cluster_run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("cluster_runs.id"), nullable=False)
+    cluster_run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("cluster_runs.id"))
+    """Пусто для решений эксперта: объединение или разделение технологий
+    принимается человеком и не привязано к запуску кластеризации (§21.1)."""
     cluster_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     relation_type: Mapped[RelationType] = mapped_column(String(32), nullable=False)
     parent_technology_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("technologies.id"))

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from eti.api.review import router as review_router
 from eti.api.routes import router
 from eti.config import get_settings
 
@@ -19,6 +20,7 @@ app = FastAPI(
     ),
 )
 app.include_router(router)
+app.include_router(review_router)
 
 
 @app.get("/")

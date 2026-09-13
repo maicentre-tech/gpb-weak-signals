@@ -37,6 +37,8 @@ export default function SearchPage() {
         <h1>Emerging Technology Intelligence</h1>
         <span className="sub">раннее обнаружение научно-технологических трендов</span>
         <span style={{ marginLeft: "auto" }}>
+          <Link href="/review">Ревью</Link>
+          {" · "}
           <Link href="/sources">Источники</Link>
         </span>
       </div>

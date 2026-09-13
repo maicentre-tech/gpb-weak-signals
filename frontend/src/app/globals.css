@@ -108,3 +108,22 @@ tr.clickable:hover td { background: var(--surface-2); cursor: pointer; }
 .muted { color: var(--muted); }
 .section-title { font-size: 15px; font-weight: 600; margin: 26px 0 12px; }
 .scroll-x { overflow-x: auto; }
+
+.btn {
+  padding: 10px 18px; font-size: 14px; font-weight: 500;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+}
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn.ok { border-color: rgba(63,185,80,0.5); color: var(--ok); }
+.btn.bad { border-color: rgba(248,81,73,0.5); color: var(--bad); }
+.btn.ghost { background: transparent; color: var(--muted); }
+.btn.small { padding: 6px 12px; font-size: 13px; }
+
+kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; padding: 1px 6px; border-radius: 4px;
+  background: var(--bg); border: 1px solid var(--border); color: var(--muted);
+}
