@@ -53,14 +53,32 @@ class TechnologySeries:
     Ряд, начинающийся ровно на этой дате, считается левоцензурированным:
     утверждать, что технология появилась именно тогда, нельзя."""
 
+    indexing_lag_months: int = 0
+    """Правая цензура: последние месяцы недоиндексированы источником.
+
+    Дополнение к ТЗ — см. ``ScoringParams.indexing_lag_months``. Все окна
+    заканчиваются на ``effective_end``, а не на ``as_of_date``, иначе
+    задержка индексации читается как спад активности."""
+
     def __post_init__(self) -> None:
         self.periods.sort(key=lambda p: p.period_start)
+
+    @property
+    def effective_end(self) -> date:
+        """Конец достоверной части ряда."""
+        if self.indexing_lag_months <= 0:
+            return self.as_of_date
+        year, month = self.as_of_date.year, self.as_of_date.month - self.indexing_lag_months
+        while month <= 0:
+            month += 12
+            year -= 1
+        return date(year, month, 1)
 
     # -- Окна -------------------------------------------------------------
 
     def window(self, months: int, end: date | None = None) -> list[PeriodMetrics]:
         """Последние ``months`` периодов, заканчивающихся не позже ``end``."""
-        end = end or self.as_of_date
+        end = end or self.effective_end
         eligible = [p for p in self.periods if p.period_start <= end]
         return eligible[-months:] if months > 0 else eligible
 
@@ -70,7 +88,7 @@ class TechnologySeries:
         Нужно для acceleration: сравниваются growth текущего окна и growth
         предыдущего окна той же длины (§24.5).
         """
-        eligible = [p for p in self.periods if p.period_start <= self.as_of_date]
+        eligible = [p for p in self.periods if p.period_start <= self.effective_end]
         end_index = len(eligible) - offset_months
         start_index = max(0, end_index - months)
         return eligible[start_index : max(start_index, end_index)]
@@ -84,7 +102,7 @@ class TechnologySeries:
     def annual_totals(self, metric: str) -> dict[int, float]:
         totals: dict[int, float] = {}
         for period in self.periods:
-            if period.period_start > self.as_of_date:
+            if period.period_start > self.effective_end:
                 continue
             totals[period.period_start.year] = (
                 totals.get(period.period_start.year, 0.0) + period.get(metric)
@@ -102,7 +120,7 @@ class TechnologySeries:
     def families_by_year(self, threshold: float = 1.0) -> dict[int, set[SourceFamily]]:
         result: dict[int, set[SourceFamily]] = {}
         for period in self.periods:
-            if period.period_start > self.as_of_date:
+            if period.period_start > self.effective_end:
                 continue
             year = period.period_start.year
             result.setdefault(year, set()).update(self.active_families(period, threshold))

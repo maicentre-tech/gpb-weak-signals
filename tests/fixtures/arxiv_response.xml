@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <link href="http://arxiv.org/api/query" rel="self" type="application/atom+xml"/>
+  <title type="html">ArXiv Query: search_query=all:agentic</title>
+  <opensearch:totalResults xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">2</opensearch:totalResults>
+  <entry>
+    <id>http://arxiv.org/abs/2504.01990v3</id>
+    <updated>2025-05-12T09:14:22Z</updated>
+    <published>2025-04-01T17:45:10Z</published>
+    <title>Advances and Challenges in Foundation Agents: From Brain-Inspired
+  Intelligence to Evolutionary, Collaborative, and Safe Systems</title>
+    <summary>  The advent of large language models has catalyzed a transformation
+in intelligent agent systems. We review the landscape of foundation agents,
+covering perception, memory, reasoning and multi-agent collaboration.
+</summary>
+    <author><name>Bang Liu</name></author>
+    <author><name>Xinfeng Li</name></author>
+    <author><name>Jiayi Zhang</name></author>
+    <arxiv:doi xmlns:arxiv="http://arxiv.org/schemas/atom">10.1145/3712345</arxiv:doi>
+    <link href="http://arxiv.org/abs/2504.01990v3" rel="alternate" type="text/html"/>
+    <link title="pdf" href="http://arxiv.org/pdf/2504.01990v3" rel="related" type="application/pdf"/>
+    <arxiv:primary_category xmlns:arxiv="http://arxiv.org/schemas/atom" term="cs.AI"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.MA" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2411.08181v1</id>
+    <updated>2024-11-12T20:31:07Z</updated>
+    <published>2024-11-12T20:31:07Z</published>
+    <title>Agentic AI for Scientific Discovery</title>
+    <summary>  A survey of agentic frameworks applied to autonomous research workflows.
+</summary>
+    <author><name>Mourad Gridach</name></author>
+    <link href="http://arxiv.org/abs/2411.08181v1" rel="alternate" type="text/html"/>
+    <arxiv:primary_category xmlns:arxiv="http://arxiv.org/schemas/atom" term="cs.AI"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+</feed>

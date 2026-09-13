@@ -17,6 +17,8 @@ from eti.config import get_settings
 from eti.db.session import session_scope
 from eti.ingestion.ratelimit import RateLimiter
 from eti.ingestion.runner import IngestionRunner
+from eti.sources.arxiv import ArxivConnector
+from eti.sources.github import GitHubConnector
 from eti.sources.openalex import OpenAlexConnector
 
 structlog.configure(
@@ -27,7 +29,11 @@ structlog.configure(
     ]
 )
 
-CONNECTORS = {"openalex": OpenAlexConnector}
+CONNECTORS = {
+    "openalex": OpenAlexConnector,
+    "arxiv": ArxivConnector,
+    "github": GitHubConnector,
+}
 
 
 async def main() -> None:
@@ -55,10 +61,13 @@ async def main() -> None:
             connector_cls.code,
             requests_per_hour=connector_cls.rate_limit_per_hour,
             weekly_volume_cap_bytes=connector_cls.weekly_volume_cap_bytes,
+            min_interval_seconds=connector_cls.min_interval_seconds,
         )
         kwargs = {}
         if connector_cls is OpenAlexConnector:
             kwargs["contact_email"] = settings.contact_email
+        if connector_cls is GitHubConnector:
+            kwargs["token"] = settings.github_token
         connector = connector_cls(client, limiter, **kwargs)
 
         async with session_scope() as session:

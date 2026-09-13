@@ -18,11 +18,19 @@ Evidence-first платформа раннего обнаружения науч
 | Схема БД + миграции | готово, 22 таблицы |
 | Ingestion-фреймворк | готово (идемпотентность, чекпоинты, DLQ, аудит) |
 | Коннектор OpenAlex | готово, проверен на живом API |
-| Коннекторы arXiv / GitHub / GH Archive / PatentsView | в работе |
-| Scoring §24.1–24.12 | формулы готовы, пайплайн в работе |
-| Entity resolution | не начат |
+| Коннектор GitHub | готово, проверен на живом API |
+| Коннектор arXiv | готово, парсер под тестом; живая проверка ждёт снятия IP-кулдауна |
+| Коннекторы GH Archive / PatentsView / CORDIS | не начаты |
+| Entity resolution | готово (детерминированные сигналы; семантика ждёт embedding-модели) |
+| Агрегация метрик + scoring §24.1–24.20 | готово, проходит насквозь до ранжирования |
 | RAG + claim verifier | не начат |
 | API + frontend | не начат |
+
+Сквозной путь работает: `ingest → mapping → aggregate → scoring → ранжирование`.
+Абсолютные значения баллов пока не показательны — популяция для нормализации
+меньше минимума §29.4, подключено 2 семейства источников из 7. Система сама
+это фиксирует: ни одна технология не проходит порог confidence, и TOP-15
+не формируется. Подробности — п. 7–9 в [docs/limitations.md](docs/limitations.md).
 
 Расхождения с ТЗ и найденные в нём дефекты — в [docs/limitations.md](docs/limitations.md).
 
@@ -52,7 +60,11 @@ createdb eti && psql -d eti -c "CREATE EXTENSION vector"
 ```bash
 alembic upgrade head
 python scripts/seed_sources.py
+python scripts/seed_ontology.py
 python scripts/ingest.py openalex --query "agentic AI" --mode backfill --cursor 2015-01-01 --limit 400
+python scripts/ingest.py github --query "agentic AI agents" --mode backfill --cursor 2016-01-01 --limit 250
+python scripts/run_mapping.py
+python scripts/run_scoring.py --as-of 2026-09-13
 pytest
 ```
 

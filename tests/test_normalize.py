@@ -159,3 +159,33 @@ class TestVolumeShrinkage:
     def test_monotonic_in_volume(self) -> None:
         values = [volume_shrinkage(n, 5) for n in (1, 5, 20, 100, 1000)]
         assert values == sorted(values)
+
+
+class TestMappingWeight:
+    """Регрессия: статус из БД приходит строкой, не членом StrEnum.
+
+    Сравнение `status is MappingStatus.PENDING_REVIEW` на строке всегда
+    ложно, и агрегация молча выдаёт пустой результат.
+    """
+
+    def test_accepts_plain_string_from_database(self) -> None:
+        from eti.config import ScoringParams
+        from eti.scoring.aggregate import mapping_weight
+
+        params = ScoringParams()
+        assert mapping_weight("pending_review", params) == params.unreviewed_review_band_weight
+        assert mapping_weight("auto_accepted", params) == 1.0
+        assert mapping_weight("rejected", params) == 0.0
+
+    def test_accepts_enum_member(self) -> None:
+        from eti.config import ScoringParams
+        from eti.db.enums import MappingStatus
+        from eti.scoring.aggregate import mapping_weight
+
+        assert mapping_weight(MappingStatus.APPROVED, ScoringParams()) == 1.0
+
+    def test_unknown_status_contributes_nothing(self) -> None:
+        from eti.config import ScoringParams
+        from eti.scoring.aggregate import mapping_weight
+
+        assert mapping_weight("что-то неизвестное", ScoringParams()) == 0.0
