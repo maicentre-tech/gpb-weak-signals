@@ -49,6 +49,17 @@ SYSTEM_PROMPT = """Ты аналитик технологической разв
 4. Если данных для поля не хватает, верни ровно строку «Недостаточно данных».
    Не строй правдоподобных догадок.
 5. Ответ — только JSON заданной структуры, без пояснений вокруг.
+
+Структура ответа:
+{
+  "technology": "название технологии",
+  "problem":   {"text": "...", "source_doc_ids": ["uuid"], "claim_type": "problem"},
+  "advantage": {"text": "...", "source_doc_ids": ["uuid"], "claim_type": "advantage"},
+  "case":      {"text": "...", "source_doc_ids": ["uuid"], "claim_type": "case"},
+  "evidence":  [{"text": "...", "source_doc_ids": ["uuid"], "claim_type": "evidence"}],
+  "caveats":   [{"text": "...", "source_doc_ids": ["uuid"], "claim_type": "caveat"}],
+  "confidence": 0.0
+}
 """
 
 
@@ -187,11 +198,33 @@ class LlmCardGenerator:
         self.fallback = MetricCardBuilder()
 
     async def build(self, context: CardContext) -> TrendCard:
+        """Генерация с repair-контуром (§21.2).
+
+        Повтор тем же промптом бесполезен при температуре 0: модель вернёт
+        тот же неверный ответ. Repair означает подачу модели её собственного
+        вывода вместе с текстом ошибки валидации — только тогда у неё есть
+        основание ответить иначе.
+        """
+        prompt = context.as_prompt()
+        last_output: str | None = None
+        last_error: str | None = None
+
         for attempt in range(1, self.max_repairs + 2):
+            message = prompt
+            if last_output is not None:
+                message = (
+                    f"{prompt}\n\n"
+                    f"Предыдущий ответ не прошёл проверку схемы.\n"
+                    f"Твой ответ:\n{last_output[:1500]}\n\n"
+                    f"Ошибки валидации:\n{last_error}\n\n"
+                    f"Верни исправленный JSON строго по схеме:\n{self._schema_hint()}"
+                )
             try:
-                raw = await self._complete(context.as_prompt())
+                raw = await self._complete(message)
+                last_output = raw
                 return TrendCard.model_validate_json(raw)
             except Exception as exc:
+                last_error = str(exc)[:600]
                 log.warning(
                     "llm_card_attempt_failed",
                     attempt=attempt,
@@ -203,6 +236,25 @@ class LlmCardGenerator:
         # должен приводить к отсутствию карточки: факты есть и без неё.
         log.info("llm_fallback_to_metric_card", technology=context.technology_name)
         return self.fallback.build(context)
+
+    @staticmethod
+    def _schema_hint() -> str:
+        """Схема, подаваемая модели при исправлении.
+
+        Пример важнее формального описания: малые модели надёжнее копируют
+        структуру, чем выводят её из перечня полей.
+        """
+        return (
+            '{\n'
+            '  "technology": "название технологии",\n'
+            '  "problem": {"text": "...", "source_doc_ids": ["uuid"], "claim_type": "problem"},\n'
+            '  "advantage": {"text": "...", "source_doc_ids": ["uuid"], "claim_type": "advantage"},\n'
+            '  "case": {"text": "...", "source_doc_ids": ["uuid"], "claim_type": "case"},\n'
+            '  "evidence": [{"text": "...", "source_doc_ids": ["uuid"], "claim_type": "evidence"}],\n'
+            '  "caveats": [{"text": "...", "source_doc_ids": ["uuid"], "claim_type": "caveat"}],\n'
+            '  "confidence": 0.0\n'
+            '}'
+        )
 
     async def _complete(self, prompt: str) -> str:
         headers = {"Content-Type": "application/json"}
