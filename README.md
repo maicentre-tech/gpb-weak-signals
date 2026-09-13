@@ -20,7 +20,10 @@ Evidence-first платформа раннего обнаружения науч
 | Коннектор OpenAlex | готово, проверен на живом API |
 | Коннектор GitHub | готово, проверен на живом API |
 | Коннектор arXiv | готово, парсер под тестом; живая проверка ждёт снятия IP-кулдауна |
-| Коннекторы GH Archive / PatentsView / CORDIS | не начаты |
+| Коннектор GDELT | готово, проверен на живом API, с фильтром релевантности |
+| Peer groups из таксономии OpenAlex | готово (104 группы) |
+| Аудит охвата источников | готово |
+| Коннекторы PatentsView / GH Archive / CORDIS | не начаты |
 | Entity resolution | готово (детерминированные сигналы; семантика ждёт embedding-модели) |
 | Агрегация метрик + scoring §24.1–24.20 | готово, проходит насквозь до ранжирования |
 | RAG + claim verifier | не начат |
@@ -63,7 +66,10 @@ python scripts/seed_sources.py
 python scripts/seed_ontology.py
 python scripts/ingest.py openalex --query "agentic AI" --mode backfill --cursor 2015-01-01 --limit 400
 python scripts/ingest.py github --query "agentic AI agents" --mode backfill --cursor 2016-01-01 --limit 250
+python scripts/ingest.py gdelt --query "agentic AI" --mode backfill --cursor 2024-06-01 --limit 400
 python scripts/run_mapping.py
+python scripts/audit_coverage.py
+python scripts/build_peer_groups.py
 python scripts/run_scoring.py --as-of 2026-09-13
 pytest
 ```

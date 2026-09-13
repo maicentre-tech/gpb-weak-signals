@@ -59,7 +59,10 @@ async def main() -> None:
         print()
         print(f"  {'#':<3}{'':<2}{'технология':<40}{'ETS':>6}{'нов':>6}{'рост':>6}{'уск':>6}{'иссл':>6}{'кросс':>7}{'conf':>7}  зрелость")
         print("  " + "-" * 106)
-        for i, r in enumerate(ranked, 1):
+        usable = [r for r in ranked if r.emerging_score > 0]
+        empty = [r for r in ranked if r.emerging_score <= 0]
+
+        for i, r in enumerate(usable, 1):
             def fmt(key: str) -> str:
                 value = r.scores.get(key)
                 return f"{value:>6.1f}" if value is not None else f"{'—':>6}"
@@ -70,6 +73,11 @@ async def main() -> None:
                 f"{(str(round(r.scores['cross_domain'],1)) if r.scores.get('cross_domain') is not None else '—'):>7}"
                 f"{r.evidence_confidence:>7.1f}  {r.maturity_stage or '—'}"
             )
+
+        if empty:
+            print(f"\n  недостаточно данных для расчёта ({len(empty)}):")
+            for r in empty:
+                print(f"    · {r.canonical_name[:44]:<46} confidence {r.evidence_confidence:.1f}")
 
         unavailable = {
             k for r in results for k, v in r.metric_status.items() if v != "available"

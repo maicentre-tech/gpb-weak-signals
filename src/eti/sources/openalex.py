@@ -139,6 +139,9 @@ class OpenAlexConnector(Connector):
         }
 
         topics = work.get("topics") or []
+        # Имена уровней иерархии сохраняются вместе с идентификаторами:
+        # без них подписью peer group становится имя произвольной темы,
+        # и «Privacy-Preserving ML» оказывается в поле «Multi-Agent Systems».
         external_topics = {
             "openalex_topics": [
                 {
@@ -146,8 +149,11 @@ class OpenAlexConnector(Connector):
                     "name": t.get("display_name"),
                     "score": t.get("score"),
                     "subfield": (t.get("subfield") or {}).get("id"),
+                    "subfield_name": (t.get("subfield") or {}).get("display_name"),
                     "field": (t.get("field") or {}).get("id"),
+                    "field_name": (t.get("field") or {}).get("display_name"),
                     "domain": (t.get("domain") or {}).get("id"),
+                    "domain_name": (t.get("domain") or {}).get("display_name"),
                 }
                 for t in topics[:10]
             ]

@@ -18,6 +18,7 @@ from eti.db.session import session_scope
 from eti.ingestion.ratelimit import RateLimiter
 from eti.ingestion.runner import IngestionRunner
 from eti.sources.arxiv import ArxivConnector
+from eti.sources.gdelt import GdeltConnector
 from eti.sources.github import GitHubConnector
 from eti.sources.openalex import OpenAlexConnector
 
@@ -33,6 +34,7 @@ CONNECTORS = {
     "openalex": OpenAlexConnector,
     "arxiv": ArxivConnector,
     "github": GitHubConnector,
+    "gdelt": GdeltConnector,
 }
 
 

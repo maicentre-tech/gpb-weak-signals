@@ -18,21 +18,25 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from eti.config import ScoringParams
 from eti.db.enums import MetricStatus
 from eti.db.models import (
     PeerGroup,
+    Source,
+    SourceCoverage,
     StrategicMatrixEntry,
     Technology,
     TechnologyMetric,
     TrendScore,
 )
+from eti.scoring.series import FAMILY_VOLUME_FIELD
 from eti.scoring import features as F
 from eti.scoring.normalize import (
     MIN_REFERENCE_POPULATION,
+    PeerNormalizer,
     missingness_penalty,
     score_0_100,
     weighted_score,
@@ -66,6 +70,31 @@ class ScoredTechnology:
     detail: dict
 
 
+async def load_coverage_ends(session: AsyncSession) -> dict[str, date]:
+    """Дата последнего документа по каждой метрике семейства источников.
+
+    Периоды после неё не содержат данных — не потому, что активности не
+    было, а потому, что загрузка до них не дошла. §24.19 требует не
+    подменять нулём отсутствующую метрику; то же правило обязано
+    действовать и во времени, иначе недогруженный источник выглядит как
+    затухшая технология.
+    """
+    rows = (
+        await session.execute(
+            select(Source.family, func.max(SourceCoverage.coverage_end_date))
+            .join(SourceCoverage, SourceCoverage.source_id == Source.id)
+            .where(SourceCoverage.coverage_end_date.isnot(None))
+            .group_by(Source.family)
+        )
+    ).all()
+    by_family = {str(family): end for family, end in rows if end}
+    return {
+        metric: by_family[str(family)]
+        for family, metric in FAMILY_VOLUME_FIELD.items()
+        if str(family) in by_family
+    }
+
+
 async def load_series(
     session: AsyncSession, as_of: date, params: ScoringParams
 ) -> dict[str, TechnologySeries]:
@@ -77,6 +106,7 @@ async def load_series(
         )
     ).scalars().all()
 
+    coverage_ends = await load_coverage_ends(session)
     grouped: dict[str, list[PeriodMetrics]] = {}
     status_by_technology: dict[str, dict[str, MetricStatus]] = {}
 
@@ -111,7 +141,12 @@ async def load_series(
         technology_id: TechnologySeries(
             technology_id=technology_id,
             as_of_date=as_of,
-            periods=_densify(periods, as_of, status_by_technology.get(technology_id, {})),
+            periods=_densify(
+                periods,
+                as_of,
+                status_by_technology.get(technology_id, {}),
+                coverage_ends,
+            ),
             indexing_lag_months=params.indexing_lag_months,
         )
         for technology_id, periods in grouped.items()
@@ -119,7 +154,10 @@ async def load_series(
 
 
 def _densify(
-    periods: list[PeriodMetrics], as_of: date, statuses: dict[str, MetricStatus]
+    periods: list[PeriodMetrics],
+    as_of: date,
+    statuses: dict[str, MetricStatus],
+    coverage_ends: dict[str, date] | None = None,
 ) -> list[PeriodMetrics]:
     """Достраивает пропущенные месяцы нулями до сплошной сетки.
 
@@ -153,7 +191,12 @@ def _densify(
                     period_end=cursor,
                     values=dict.fromkeys(template, 0.0),
                     status={
-                        name: statuses.get(name, MetricStatus.AVAILABLE) for name in template
+                        name: (
+                            MetricStatus.UNAVAILABLE
+                            if name in coverage_ends and cursor > coverage_ends[name]
+                            else statuses.get(name, MetricStatus.AVAILABLE)
+                        )
+                        for name in template
                     },
                 )
             )
@@ -165,8 +208,49 @@ def _densify(
     return dense
 
 
+class FeatureNormalizers:
+    """Нормализаторы по признакам с привязкой к peer group (§29.4).
+
+    Для каждого признака хранится своя популяция в разрезе групп внешней
+    таксономии. Если группа технологии меньше минимума, ``PeerNormalizer``
+    поднимается к родительскому уровню, а затем к глобальной популяции —
+    и сообщает, какой уровень был фактически использован. Этот факт
+    сохраняется в ``trend_scores``: балл, посчитанный по 13 объектам,
+    не должен выглядеть так же, как балл по 3 000.
+    """
+
+    def __init__(
+        self,
+        raw_values: dict[str, dict[str, float]],
+        group_of: dict[str, str],
+        parents: dict[str, str | None],
+        min_population: int,
+    ) -> None:
+        self.group_of = group_of
+        self._normalizers: dict[str, PeerNormalizer] = {}
+        for feature, by_technology in raw_values.items():
+            populations: dict[str, list[float]] = {}
+            for technology_id, value in by_technology.items():
+                group = group_of.get(technology_id) or "__global__"
+                populations.setdefault(group, []).append(value)
+            self._normalizers[feature] = PeerNormalizer(
+                populations, parents, min_population=min_population
+            )
+
+    def normalize(self, feature: str, technology_id: str, value: float) -> tuple[float, int]:
+        normalizer = self._normalizers.get(feature)
+        if normalizer is None:
+            return 0.0, 0
+        group = self.group_of.get(technology_id) or "__global__"
+        score, _used_group, size = normalizer.normalize(value, group)
+        return score, size
+
+
 def _composite_raw(
-    components: dict[str, float], spec: dict[str, tuple[str, float]], population: dict[str, list[float]]
+    components: dict[str, float],
+    spec: dict[str, tuple[str, float]],
+    normalizers: FeatureNormalizers,
+    technology_id: str,
 ) -> tuple[float | None, dict[str, float], dict[str, str]]:
     """Свёртка подкомпонентов композитного признака (§24.6–24.10).
 
@@ -180,7 +264,7 @@ def _composite_raw(
         for name in spec
     }
     normalized = {
-        name: score_0_100(value, population.get(name, []))
+        name: normalizers.normalize(name, technology_id, value)[0]
         for name, value in components.items()
     }
     raw, effective = weighted_score(normalized, weights, statuses)
@@ -199,9 +283,14 @@ async def compute_scores(
     if not series_by_id:
         return []
 
-    names = {
-        str(tech.id): tech.canonical_name
-        for tech in (await session.execute(select(Technology))).scalars().all()
+    technologies = (await session.execute(select(Technology))).scalars().all()
+    names = {str(tech.id): tech.canonical_name for tech in technologies}
+    group_of = {
+        str(tech.id): str(tech.peer_group_id) for tech in technologies if tech.peer_group_id
+    }
+    parents = {
+        str(group.id): (str(group.parent_id) if group.parent_id else None)
+        for group in (await session.execute(select(PeerGroup))).scalars().all()
     }
 
     # --- Фаза A: сырые признаки ------------------------------------------
@@ -222,29 +311,33 @@ async def compute_scores(
             detail="баллы percentile статистически неустойчивы",
         )
 
-    # --- Популяции для нормализации --------------------------------------
+    # --- Популяции для нормализации, в разрезе peer group -----------------
     simple_features = ["novelty", "growth", "acceleration", "citation"]
-    populations: dict[str, list[float]] = {
-        name: [
-            raw[name].raw
-            for raw in raw_by_id.values()
+    raw_values: dict[str, dict[str, float]] = {
+        name: {
+            technology_id: raw[name].raw
+            for technology_id, raw in raw_by_id.items()
             if isinstance(raw[name], F.FeatureValue) and raw[name].raw is not None
-        ]
+        }
         for name in simple_features
     }
     for composite, spec in COMPOSITE_SPECS.items():
         for component in spec:
-            populations[component] = [
-                raw[f"{composite}_components"].get(component)
-                for raw in raw_by_id.values()
+            raw_values[component] = {
+                technology_id: raw[f"{composite}_components"][component]
+                for technology_id, raw in raw_by_id.items()
                 if component in raw[f"{composite}_components"]
-            ]
+            }
     for component in ("age", "saturation", "commercialization", "adoption", "inverse_acceleration"):
-        populations[component] = [
-            raw["maturity_components"].get(component)
-            for raw in raw_by_id.values()
+        raw_values[component] = {
+            technology_id: raw["maturity_components"][component]
+            for technology_id, raw in raw_by_id.items()
             if component in raw["maturity_components"]
-        ]
+        }
+
+    normalizers = FeatureNormalizers(
+        raw_values, group_of, parents, min_population=MIN_REFERENCE_POPULATION
+    )
 
     strategic_matrix = await _load_strategic_matrix(session)
 
@@ -252,6 +345,7 @@ async def compute_scores(
     for technology_id, raw in raw_by_id.items():
         scores: dict[str, float | None] = {}
         statuses: dict[str, str] = {}
+        used_population = population_size
 
         for name in simple_features:
             value: F.FeatureValue = raw[name]  # type: ignore[assignment]
@@ -259,7 +353,8 @@ async def compute_scores(
                 scores[name] = None
                 statuses[name] = str(value.status)
             else:
-                scores[name] = score_0_100(value.raw, populations[name])
+                scores[name], size = normalizers.normalize(name, technology_id, value.raw)
+                used_population = min(used_population, size) if size else used_population
                 statuses[name] = str(MetricStatus.AVAILABLE)
 
         cross = raw["cross_domain"]
@@ -268,7 +363,9 @@ async def compute_scores(
 
         for composite, spec in COMPOSITE_SPECS.items():
             components = raw[f"{composite}_components"]
-            composite_raw, _effective, _sub = _composite_raw(components, spec, populations)
+            composite_raw, _effective, _sub = _composite_raw(
+                components, spec, normalizers, technology_id
+            )
             scores[composite] = composite_raw
             statuses[composite] = str(
                 MetricStatus.AVAILABLE if composite_raw is not None else MetricStatus.UNAVAILABLE
@@ -276,7 +373,7 @@ async def compute_scores(
 
         maturity_components = raw["maturity_components"]
         maturity_normalized = {
-            name: score_0_100(value, populations.get(name, []))
+            name: normalizers.normalize(name, technology_id, value)[0]
             for name, value in maturity_components.items()
         }
         maturity_statuses = {
@@ -322,7 +419,7 @@ async def compute_scores(
                 strategic_priority=priority,
                 effective_weights=effective_weights,
                 metric_status=statuses,
-                reference_population_size=population_size,
+                reference_population_size=used_population,
                 detail={
                     "novelty": raw["novelty"].detail,
                     "cross_domain": raw["cross_domain"].detail,
@@ -404,9 +501,10 @@ async def _persist(
             TrendScore.scoring_version == params.scoring_version,
         )
     )
-    peer_group_id = (
-        await session.execute(select(PeerGroup.id).limit(1))
-    ).scalar_one_or_none()
+    group_by_technology = {
+        str(tech.id): tech.peer_group_id
+        for tech in (await session.execute(select(Technology))).scalars().all()
+    }
 
     for result in results:
         session.add(
@@ -430,7 +528,7 @@ async def _persist(
                 evidence_confidence=result.evidence_confidence,
                 effective_weights=result.effective_weights,
                 metric_status=result.metric_status,
-                peer_group_id=peer_group_id,
+                peer_group_id=group_by_technology.get(result.technology_id),
                 reference_population_size=result.reference_population_size,
                 scoring_version=params.scoring_version,
                 dataset_version=dataset_version,

@@ -53,6 +53,23 @@ def _window_total(series: TechnologySeries, metric: str, months: int, offset: in
     return series.total(metric, periods)
 
 
+def _window_covered(
+    series: TechnologySeries, metric: str, months: int, offset: int = 0, min_share: float = 0.75
+) -> bool:
+    """Есть ли в окне данные по метрике.
+
+    Периоды, помеченные UNAVAILABLE, — это месяцы после окончания охвата
+    источника. Суммировать их как нули значит выдать недогруженный источник
+    за прекратившуюся активность. Если покрыто меньше ``min_share`` окна,
+    прирост по этой метрике не считается вовсе — вес уйдёт другим (§24.19).
+    """
+    periods = series.shifted_window(months, offset) if offset else series.window(months)
+    if not periods:
+        return False
+    covered = sum(1 for p in periods if p.is_available(metric))
+    return covered / len(periods) >= min_share
+
+
 def _growth_of(
     series: TechnologySeries, metric: str, months: int, params: ScoringParams | None = None
 ) -> float | None:
@@ -60,6 +77,10 @@ def _growth_of(
 
     Усадка — дополнение к ТЗ; см. ``normalize.volume_shrinkage``.
     """
+    if not _window_covered(series, metric, months) or not _window_covered(
+        series, metric, months, offset=months
+    ):
+        return None
     current = _window_total(series, metric, months)
     previous = _window_total(series, metric, months, offset=months)
     if current == 0 and previous == 0:
@@ -74,6 +95,11 @@ def _acceleration_of(
     series: TechnologySeries, metric: str, months: int, params: ScoringParams | None = None
 ) -> float | None:
     """growth_t − growth_prev — §24.5, с той же усадкой по объёму."""
+    if not all(
+        _window_covered(series, metric, months, offset=shift)
+        for shift in (0, months, 2 * months)
+    ):
+        return None
     v_t = _window_total(series, metric, months)
     v_k = _window_total(series, metric, months, offset=months)
     v_2k = _window_total(series, metric, months, offset=2 * months)
