@@ -22,6 +22,18 @@ API_BASE = "https://api.openalex.org"
 PER_PAGE = 200
 
 
+def as_filter_date(cursor: str) -> str:
+    """Приводит курсор к формату даты, который принимают фильтры OpenAlex.
+
+    ``updated_date`` приходит полной меткой времени
+    (``2026-09-11T09:22:31.653822``), а фильтры ``from_updated_date`` и
+    ``from_publication_date`` принимают только ``YYYY-MM-DD`` и на
+    timestamp отвечают 400. Ошибка проявляется не сразу: первый запуск с
+    пустым чекпоинтом проходит, падает второй.
+    """
+    return cursor[:10]
+
+
 def reconstruct_abstract(inverted_index: dict[str, list[int]] | None) -> str | None:
     """OpenAlex отдаёт абстракт инвертированным индексом {слово: [позиции]}.
 
@@ -75,9 +87,9 @@ class OpenAlexConnector(Connector):
         if query:
             filters.append(f"title_and_abstract.search:{query}")
         if mode == "incremental" and cursor:
-            filters.append(f"from_updated_date:{cursor}")
+            filters.append(f"from_updated_date:{as_filter_date(cursor)}")
         elif mode == "backfill" and cursor:
-            filters.append(f"from_publication_date:{cursor}")
+            filters.append(f"from_publication_date:{as_filter_date(cursor)}")
         if not filters:
             filters.append("from_publication_date:2010-01-01")
 

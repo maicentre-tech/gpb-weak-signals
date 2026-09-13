@@ -135,10 +135,16 @@ class IngestionRunner:
         self,
         *,
         mode: str = "incremental",
-        stream: str = "default",
+        stream: str | None = None,
         query: str | None = None,
         limit: int | None = None,
     ) -> IngestionRun:
+        # Чекпоинты разных режимов не смешиваются. Инкрементальная загрузка
+        # держит курсор по дате изменения записи, историческая — по дате
+        # публикации. Общий чекпоинт означал бы подстановку курсора одного
+        # режима в фильтр другого: запрос либо падает, либо тихо возвращает
+        # не тот срез.
+        stream = stream or mode
         source = await self._get_source()
         self._check_license_gate(source)
         checkpoint = await self._get_checkpoint(source, stream)

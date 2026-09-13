@@ -31,6 +31,7 @@ Evidence-first платформа раннего обнаружения науч
 | Frontend (Next.js 16 + React 19) | готово: поиск, TOP-N, карточка, радар, timeline, provenance, статус источников |
 | LLM-генерация карточек | проверено на qwen2.5:3b через Ollama, 5/5 валидного JSON |
 | Экспертное ревью (§21.1) | API — все 8 операций; UI — 3 из 8 |
+| Оркестрация (Prefect) | готово: 3 потока + сквозной, расписания §9 |
 
 ### Покрытие требований §21.1 (human-in-the-loop)
 
@@ -92,6 +93,9 @@ python scripts/audit_coverage.py
 python scripts/build_peer_groups.py
 python scripts/run_scoring.py --as-of 2026-09-13
 python scripts/generate_card.py "Agentic"
+
+# то же самое одним потоком, в правильном порядке
+python scripts/run_flow.py full --query "agentic AI" --sources openalex,github
 pytest
 uvicorn eti.api.app:app --reload        # http://localhost:8000/docs
 ```

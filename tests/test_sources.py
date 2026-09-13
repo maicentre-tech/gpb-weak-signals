@@ -161,3 +161,22 @@ def _normalize(payload: dict):
 def _normalize_github(payload: dict):
     connector = GitHubConnector.__new__(GitHubConnector)
     return connector.normalize(RawRecord(external_id=str(payload["id"]), payload=payload))
+
+
+class TestOpenAlexCursor:
+    """Регрессия: курсор приходит меткой времени, а фильтр ждёт дату.
+
+    Первый запуск с пустым чекпоинтом проходит, падает второй — поэтому
+    ошибка не видна при разовой проверке коннектора и всплывает только
+    при повторном запуске по расписанию.
+    """
+
+    def test_timestamp_cursor_reduced_to_date(self) -> None:
+        from eti.sources.openalex import as_filter_date
+
+        assert as_filter_date("2026-09-11T09:22:31.653822") == "2026-09-11"
+
+    def test_plain_date_passes_through(self) -> None:
+        from eti.sources.openalex import as_filter_date
+
+        assert as_filter_date("2026-09-11") == "2026-09-11"
