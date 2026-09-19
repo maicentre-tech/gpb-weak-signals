@@ -22,6 +22,7 @@ from eti.api.schemas import (
     JobResponse,
     QueryRequest,
     QueryResponse,
+    SignalStats,
     SignalProfile,
     SourceReference,
     SourceStatus,
@@ -57,6 +58,41 @@ COVERAGE_THRESHOLD = 0.3
 
 async def _latest_scoring_date(session: AsyncSession) -> date | None:
     return (await session.execute(select(func.max(TrendScore.as_of_date)))).scalar_one_or_none()
+
+
+@router.get("/signals/stats", response_model=SignalStats)
+async def signal_stats(session: AsyncSession = Depends(get_session)):
+    """Показывает требуемое ТЗ число кандидатов с confidence выше 75%."""
+    as_of = await _latest_scoring_date(session)
+    if as_of is None:
+        return SignalStats(
+            candidates=0,
+            eligible=0,
+            confidence_over_75=0,
+            mature_excluded=0,
+            hype_suspected=0,
+            noise_excluded=0,
+        )
+    rows = (
+        await session.execute(
+            select(TrendScore.evidence_confidence, TrendScore.signal_status).where(
+                TrendScore.as_of_date == as_of
+            )
+        )
+    ).all()
+    statuses = [status or "eligible" for _confidence, status in rows]
+    return SignalStats(
+        candidates=len(rows),
+        eligible=statuses.count("eligible"),
+        confidence_over_75=sum(
+            1
+            for confidence, status in rows
+            if confidence >= 75 and (status is None or status == "eligible")
+        ),
+        mature_excluded=statuses.count("mature_excluded"),
+        hype_suspected=statuses.count("hype_suspected"),
+        noise_excluded=statuses.count("noise_excluded"),
+    )
 
 
 async def _match_technologies(session: AsyncSession, domain: str) -> tuple[list[Technology], float]:
@@ -165,6 +201,9 @@ async def query(
             score.evidence_confidence >= min_confidence
             and (score.maturity_stage is None or str(score.maturity_stage) in allowed)
             and score.emerging_score > 0
+            # Snapshot до добавления фильтра остаётся читаемым; следующий
+            # run_scoring заполнит статус для всех новых результатов.
+            and score.signal_status in (None, "eligible")
         )
         results.append(
             TrendSummary(
@@ -176,6 +215,9 @@ async def query(
                 strategic_relevance=score.strategic_relevance,
                 strategic_priority=score.strategic_priority,
                 evidence_confidence=score.evidence_confidence,
+                classifier_confidence=(score.detector_scores or {}).get("weak_signal_probability"),
+                signal_status=score.signal_status,
+                exclusion_reason=(score.detector_scores or {}).get("exclusion_reason"),
                 maturity=str(score.maturity_stage) if score.maturity_stage else None,
                 passes_filters=passes,
             )
@@ -301,6 +343,10 @@ async def get_trend(
         ),
         emerging_score=score.emerging_score,
         evidence_confidence=score.evidence_confidence,
+        classifier_confidence=(score.detector_scores or {}).get("weak_signal_probability"),
+        signal_status=score.signal_status,
+        exclusion_reason=(score.detector_scores or {}).get("exclusion_reason"),
+        key_predictors=(score.detector_scores or {}).get("key_predictors", []),
         strategic_relevance=score.strategic_relevance,
         effective_weights=score.effective_weights or {},
         metric_status=score.metric_status or {},
@@ -395,8 +441,12 @@ async def get_sources(
                 Document.id,
                 Document.title,
                 Document.url,
+                Document.language,
                 Document.published_at,
                 Source.code,
+                Source.name,
+                Source.family,
+                Source.evidence_weight,
                 TechnologyMapping.mapping_score,
                 TechnologyMapping.mapping_status,
             )
@@ -413,11 +463,30 @@ async def get_sources(
             title=title,
             url=url,
             source_code=code,
+            source_name=name,
+            source_type=str(family),
+            language_original=language,
+            trust_level=(
+                "высокий" if weight >= 0.9 else "средний" if weight >= 0.6 else "пониженный"
+            ),
+            trust_score=weight,
             published_at=published_at,
             mapping_score=score,
             mapping_status=str(status),
         )
-        for doc_id, title, url, published_at, code, score, status in rows
+        for (
+            doc_id,
+            title,
+            url,
+            language,
+            published_at,
+            code,
+            name,
+            family,
+            weight,
+            score,
+            status,
+        ) in rows
     ]
 
 

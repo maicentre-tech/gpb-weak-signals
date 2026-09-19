@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { api, isJob, type JobResponse, type QueryResponse } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { api, isJob, type JobResponse, type QueryResponse, type SignalStats } from "@/lib/api";
 import { ConfidenceTag, MaturityTag, Score } from "@/components/Bits";
 
 export default function SearchPage() {
@@ -11,6 +11,11 @@ export default function SearchPage() {
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [job, setJob] = useState<JobResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<SignalStats | null>(null);
+
+  useEffect(() => {
+    api.signalStats().then(setStats).catch(() => setStats(null));
+  }, []);
 
   async function run() {
     setLoading(true);
@@ -42,6 +47,16 @@ export default function SearchPage() {
           <Link href="/sources">Источники</Link>
         </span>
       </div>
+
+      {stats && (
+        <div className="meta" style={{ marginBottom: 18 }}>
+          <span><strong>{stats.confidence_over_75}</strong> сигналов с confidence &gt;75%</span>
+          <span>{stats.eligible} допущено в ранжирование</span>
+          <span>{stats.candidates} кандидатов обработано</span>
+          <span>{stats.hype_suspected} отсечено как хайп</span>
+          <span>{stats.noise_excluded} как шум</span>
+        </div>
+      )}
 
       <div className="search">
         <input
@@ -104,7 +119,13 @@ export default function SearchPage() {
                         <Link href={`/trends/${t.technology_id}`}>{t.canonical_name}</Link>
                         {!t.passes_filters && (
                           <span className="tag warn" style={{ marginLeft: 8 }}>
-                            ниже порогов
+                            {t.signal_status === "hype_suspected"
+                              ? "похоже на хайп"
+                              : t.signal_status === "noise_excluded"
+                                ? "недостаточно доказательств"
+                                : t.signal_status === "mature_excluded"
+                                  ? "зрелая технология"
+                                  : "ниже порогов"}
                           </span>
                         )}
                         {t.canonical_name_ru && (
@@ -121,6 +142,11 @@ export default function SearchPage() {
                       </td>
                       <td>
                         <ConfidenceTag value={t.evidence_confidence} />
+                        {t.classifier_confidence !== null && (
+                          <div className="muted" style={{ fontSize: 12 }}>
+                            ML {(t.classifier_confidence * 100).toFixed(0)}%
+                          </div>
+                        )}
                       </td>
                       <td>
                         <MaturityTag value={t.maturity} />

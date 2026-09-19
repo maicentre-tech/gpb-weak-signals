@@ -108,6 +108,9 @@ export default function TrendPage({ params }: { params: Promise<{ id: string }> 
           <span>
             confidence <ConfidenceTag value={card.evidence_confidence} />
           </span>
+          {card.classifier_confidence !== null && (
+            <span>ML weak signal <strong>{(card.classifier_confidence * 100).toFixed(0)}%</strong></span>
+          )}
           <span>
             зрелость <MaturityTag value={card.maturity} />
           </span>
@@ -138,6 +141,21 @@ export default function TrendPage({ params }: { params: Promise<{ id: string }> 
         )}
       </div>
 
+      {card.exclusion_reason && <div className="banner warn">{card.exclusion_reason}</div>}
+
+      {card.key_predictors.length > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="section-title" style={{ marginTop: 0 }}>Ключевые предикторы модели</div>
+          <div className="meta">
+            {card.key_predictors.map((predictor) => (
+              <span key={predictor.feature}>
+                {predictor.feature} ({predictor.contribution > 0 ? "+" : ""}{predictor.contribution.toFixed(3)})
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid2">
         <div className="card">
           <div className="section-title" style={{ marginTop: 0 }}>
@@ -161,6 +179,8 @@ export default function TrendPage({ params }: { params: Promise<{ id: string }> 
               <tr>
                 <th>Документ</th>
                 <th style={{ width: 110 }}>Источник</th>
+                <th style={{ width: 110 }}>Тип · язык</th>
+                <th style={{ width: 100 }}>Доверие</th>
                 <th style={{ width: 90 }} className="num">
                   Маппинг
                 </th>
@@ -179,7 +199,15 @@ export default function TrendPage({ params }: { params: Promise<{ id: string }> 
                       (s.title ?? s.document_id)
                     )}
                   </td>
-                  <td className="muted">{s.source_code}</td>
+                  <td className="muted">{s.source_name}</td>
+                  <td className="muted">
+                    {s.source_type} · {s.language_original ?? "не указан"}
+                  </td>
+                  <td>
+                    <span className={`tag ${s.trust_score >= 0.9 ? "ok" : "warn"}`}>
+                      {s.trust_level}
+                    </span>
+                  </td>
                   <td className="num">{s.mapping_score.toFixed(2)}</td>
                   <td>
                     <span

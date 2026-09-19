@@ -16,6 +16,9 @@ export interface TrendSummary {
   strategic_relevance: number | null;
   strategic_priority: number | null;
   evidence_confidence: number;
+  classifier_confidence: number | null;
+  signal_status: string | null;
+  exclusion_reason: string | null;
   maturity: string | null;
   passes_filters: boolean;
 }
@@ -40,6 +43,15 @@ export interface JobResponse {
   coverage_confidence: number | null;
   requested_at: string;
   message: string;
+}
+
+export interface SignalStats {
+  candidates: number;
+  eligible: number;
+  confidence_over_75: number;
+  mature_excluded: number;
+  hype_suspected: number;
+  noise_excluded: number;
 }
 
 export interface SignalProfile {
@@ -69,6 +81,10 @@ export interface TrendCard {
   scores: SignalProfile;
   emerging_score: number;
   evidence_confidence: number;
+  classifier_confidence: number | null;
+  signal_status: string | null;
+  exclusion_reason: string | null;
+  key_predictors: Array<{ feature: string; contribution: number }>;
   strategic_relevance: number | null;
   effective_weights: Record<string, number>;
   metric_status: Record<string, string>;
@@ -99,6 +115,11 @@ export interface SourceReference {
   title: string | null;
   url: string | null;
   source_code: string;
+  source_name: string;
+  source_type: string;
+  language_original: string | null;
+  trust_level: string;
+  trust_score: number;
   published_at: string | null;
   mapping_score: number;
   mapping_status: string;
@@ -190,6 +211,7 @@ export const api = {
   timeline: (id: string) => request<TimelinePoint[]>(`/trends/${id}/timeline`),
   sources: (id: string) => request<SourceReference[]>(`/trends/${id}/sources`),
   sourceStatus: () => request<SourceStatus[]>("/sources/status"),
+  signalStats: () => request<SignalStats>("/signals/stats"),
 
   reviewQueue: (limit = 25, offset = 0) =>
     request<QueueResponse>(`/review/queue?limit=${limit}&offset=${offset}`),

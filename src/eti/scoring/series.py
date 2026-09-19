@@ -54,21 +54,36 @@ class TechnologySeries:
     утверждать, что технология появилась именно тогда, нельзя."""
 
     indexing_lag_months: int = 0
-    """Правая цензура: последние месяцы недоиндексированы источником.
+    """Запасное значение лага, если по метрике нет измерения."""
 
-    Дополнение к ТЗ — см. ``ScoringParams.indexing_lag_months``. Все окна
-    заканчиваются на ``effective_end``, а не на ``as_of_date``, иначе
-    задержка индексации читается как спад активности."""
+    lag_by_metric: dict[str, float] = field(default_factory=dict)
+    """Измеренная задержка индексации на каждую метрику отдельно.
+
+    Общий лаг на всю технологию неверен: репозитории GitHub видны в тот же
+    день, статьи OpenAlex — через месяцы, патенты — через полтора года.
+    Сдвигая все окна на худший из лагов, мы выбрасываем свежий сигнал
+    быстрых источников ради медленных. Поэтому окно каждой метрики
+    заканчивается на своей дате."""
 
     def __post_init__(self) -> None:
         self.periods.sort(key=lambda p: p.period_start)
 
     @property
     def effective_end(self) -> date:
-        """Конец достоверной части ряда."""
-        if self.indexing_lag_months <= 0:
+        """Конец достоверной части ряда при общем лаге."""
+        return self._shift_back(self.indexing_lag_months)
+
+    def effective_end_for(self, metric: str | None) -> date:
+        """Конец достоверной части ряда для конкретной метрики."""
+        if metric is None:
+            return self.effective_end
+        lag = self.lag_by_metric.get(metric, self.indexing_lag_months)
+        return self._shift_back(int(round(lag)))
+
+    def _shift_back(self, months: int) -> date:
+        if months <= 0:
             return self.as_of_date
-        year, month = self.as_of_date.year, self.as_of_date.month - self.indexing_lag_months
+        year, month = self.as_of_date.year, self.as_of_date.month - months
         while month <= 0:
             month += 12
             year -= 1
@@ -76,19 +91,29 @@ class TechnologySeries:
 
     # -- Окна -------------------------------------------------------------
 
-    def window(self, months: int, end: date | None = None) -> list[PeriodMetrics]:
-        """Последние ``months`` периодов, заканчивающихся не позже ``end``."""
-        end = end or self.effective_end
+    def window(
+        self, months: int, end: date | None = None, metric: str | None = None
+    ) -> list[PeriodMetrics]:
+        """Последние ``months`` периодов, заканчивающихся не позже ``end``.
+
+        Если указана метрика, окно заканчивается на её собственной дате
+        достоверности, а не на общей для технологии.
+        """
+        end = end or self.effective_end_for(metric)
         eligible = [p for p in self.periods if p.period_start <= end]
         return eligible[-months:] if months > 0 else eligible
 
-    def shifted_window(self, months: int, offset_months: int) -> list[PeriodMetrics]:
+    def shifted_window(
+        self, months: int, offset_months: int, metric: str | None = None
+    ) -> list[PeriodMetrics]:
         """Окно той же длины, сдвинутое назад на ``offset_months``.
 
         Нужно для acceleration: сравниваются growth текущего окна и growth
         предыдущего окна той же длины (§24.5).
         """
-        eligible = [p for p in self.periods if p.period_start <= self.effective_end]
+        eligible = [
+            p for p in self.periods if p.period_start <= self.effective_end_for(metric)
+        ]
         end_index = len(eligible) - offset_months
         start_index = max(0, end_index - months)
         return eligible[start_index : max(start_index, end_index)]

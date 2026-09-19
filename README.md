@@ -1,7 +1,7 @@
 # ETI — Emerging Technology Intelligence
 
 Evidence-first платформа раннего обнаружения научно-технологических трендов.
-Реализация ТЗ «Emerging Technology Intelligence» v1.4.
+Реализация хакатонного ТЗ «Emerging Technology Intelligence» v1.5.
 
 **Архитектурный принцип:** ML и статистика отвечают за обнаружение,
 сопоставление и ранжирование; LLM — только за структурированное объяснение
@@ -30,6 +30,8 @@ Evidence-first платформа раннего обнаружения науч
 | FastAPI (§10) | готово, 9 эндпоинтов |
 | Frontend (Next.js 16 + React 19) | готово: поиск, TOP-N, карточка, радар, timeline, provenance, статус источников |
 | LLM-генерация карточек | проверено на qwen2.5:3b через Ollama, 5/5 валидного JSON |
+| P0-классификатор слабых сигналов | готов baseline: 100 экспертных положительных примеров + открытые контрпримеры зрелости, хайпа и шума; локальные объяснения по признакам |
+| Docker Compose | готово: PostgreSQL/pgvector, FastAPI и Next.js |
 | Экспертное ревью (§21.1) | API — все 8 операций; UI — 3 из 8 |
 | Оркестрация (Prefect) | готово: 3 потока + сквозной, расписания §9 |
 
@@ -78,6 +80,57 @@ brew install postgresql@17 pgvector
 LC_ALL=en_US.UTF-8 pg_ctl -D /opt/homebrew/var/postgresql@17 start
 createdb eti && psql -d eti -c "CREATE EXTENSION vector"
 ```
+
+## Быстрый запуск в Docker
+
+Требуется Docker Desktop. Контейнеры поднимают PostgreSQL с pgvector, API и
+русскоязычный web-интерфейс:
+
+```bash
+docker compose up --build
+```
+
+После старта: UI — `http://localhost:3000`, OpenAPI — `http://localhost:8000/docs`.
+Первичная инициализация данных выполняется из контейнера API:
+
+```bash
+docker compose exec api alembic upgrade head
+docker compose exec api python scripts/seed_sources.py
+docker compose exec api python scripts/seed_ontology.py
+```
+
+Перед демонстрацией обучите модель: каталог `artifacts/` автоматически
+монтируется в API-контейнер. Без файла модели система продолжает применять
+проверяемые фильтры зрелости, хайпа и шума, но показывает отсутствие ML-оценки.
+
+## Обучение P0-классификатора
+
+Датасет организаторов содержит 100 положительных экспертных примеров. Для
+классификации бинарный baseline дополняет их явно помеченными контрпримерами
+трёх обязательных для отсечения классов: зрелые технологии, маркетинговый
+хайп и информационный шум. Эти контрпримеры не выдаются за разметку
+организаторов; их можно расширять в `src/eti/ml/signal_classifier.py`.
+
+```bash
+python scripts/train_signal_classifier.py \
+  "/path/to/100_слабых_технологических_сигналов_сентябрь_2026.xlsx"
+```
+
+Команда сохраняет `artifacts/signal_classifier.joblib` и
+`artifacts/signal_classifier_report.json` с Accuracy, Precision, Recall и
+F1. В отчёте явно указано, что финальное прохождение порога 75–80% возможно
+подтвердить только на закрытой выборке жюри. Для каждого решения доступны
+вероятность и вклад токенов (ключевые предикторы), а не непрозрачный балл.
+
+После первого scoring-прогона сформируйте негативы из собственного корпуса
+для ручной проверки и следующего цикла обучения:
+
+```bash
+python scripts/build_corpus_negatives.py
+```
+
+Скрипт включает только кандидатов, которые объяснимо исключены как зрелые,
+хайп или шум; происхождение каждого примера фиксируется в JSON.
 
 ## Запуск
 

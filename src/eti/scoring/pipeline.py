@@ -42,6 +42,9 @@ from eti.scoring.normalize import (
     weighted_score,
 )
 from eti.scoring.series import PeriodMetrics, TechnologySeries
+from eti.scoring.filters import assess_candidate
+from eti.ml.runtime import load_runtime_classifier
+from eti.ml.signal_classifier import SignalRecord
 
 log = structlog.get_logger(__name__)
 
@@ -62,6 +65,10 @@ class ScoredTechnology:
     maturity: float | None
     maturity_stage: str | None
     evidence_confidence: float
+    classifier_confidence: float | None
+    signal_status: str
+    exclusion_reason: str | None
+    key_predictors: list[dict[str, float | str]]
     strategic_relevance: float | None
     strategic_priority: float | None
     effective_weights: dict[str, float]
@@ -340,6 +347,7 @@ async def compute_scores(
     )
 
     strategic_matrix = await _load_strategic_matrix(session)
+    classifier = load_runtime_classifier()
 
     results: list[ScoredTechnology] = []
     for technology_id, raw in raw_by_id.items():
@@ -404,6 +412,37 @@ async def compute_scores(
             params, statuses, series_by_id[technology_id], raw
         )
 
+        model_result: dict | None = None
+        if classifier is not None:
+            model_result = classifier.predict_with_explanation(
+                SignalRecord(
+                    technology=names.get(technology_id, ""),
+                    domain="open_search",
+                    rationale=" ".join(
+                        f"{name}={value:.1f}" for name, value in scores.items() if value is not None
+                    ),
+                    stage=F.maturity_stage(maturity_value) if maturity_value is not None else "",
+                    mention_trend=(
+                        "Растёт быстро"
+                        if (scores.get("acceleration") or 0) >= 60
+                        else "Стабильный"
+                    ),
+                    sources="https://evidence.local" if (scores.get("cross_domain") or 0) >= 25 else "",
+                    label=1,
+                )
+            )
+        model_probability = (
+            float(model_result["weak_signal_probability"]) if model_result is not None else None
+        )
+        maturity_stage = F.maturity_stage(maturity_value) if maturity_value is not None else None
+        decision = assess_candidate(
+            maturity_stage=maturity_stage,
+            scores=scores,
+            evidence_confidence=confidence,
+            model_probability=model_probability,
+            min_confidence=params.min_evidence_confidence,
+        )
+
         relevance = strategic_matrix.get(technology_id)
         priority = (ets * relevance / 100) if relevance is not None else None
 
@@ -414,10 +453,12 @@ async def compute_scores(
                 scores=scores,
                 emerging_score=ets,
                 maturity=maturity_value,
-                maturity_stage=(
-                    F.maturity_stage(maturity_value) if maturity_value is not None else None
-                ),
+                maturity_stage=maturity_stage,
                 evidence_confidence=confidence,
+                classifier_confidence=model_probability,
+                signal_status=decision.status,
+                exclusion_reason=decision.reason,
+                key_predictors=(model_result or {}).get("key_predictors", []),
                 strategic_relevance=relevance,
                 strategic_priority=priority,
                 effective_weights=effective_weights,
@@ -426,6 +467,7 @@ async def compute_scores(
                 detail={
                     "novelty": raw["novelty"].detail,
                     "cross_domain": raw["cross_domain"].detail,
+                    "classifier": model_result or {"status": "model_unavailable"},
                 },
             )
         )
@@ -526,6 +568,12 @@ async def _persist(
                 maturity=result.maturity,
                 maturity_stage=result.maturity_stage,
                 emerging_score=result.emerging_score,
+                signal_status=result.signal_status,
+                detector_scores={
+                    "weak_signal_probability": result.classifier_confidence,
+                    "key_predictors": result.key_predictors,
+                    "exclusion_reason": result.exclusion_reason,
+                },
                 strategic_relevance=result.strategic_relevance,
                 strategic_priority=result.strategic_priority,
                 evidence_confidence=result.evidence_confidence,
@@ -555,6 +603,7 @@ def select_top(results: list[ScoredTechnology], params: ScoringParams) -> list[S
         for result in results
         if result.evidence_confidence >= params.min_evidence_confidence
         and (result.maturity_stage is None or result.maturity_stage in params.allowed_maturity)
+        and result.signal_status == "eligible"
     ]
     candidates.sort(
         key=lambda r: (r.strategic_priority if r.strategic_priority is not None else r.emerging_score),

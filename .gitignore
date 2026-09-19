@@ -7,5 +7,6 @@ data/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+artifacts/
 node_modules/
 .DS_Store

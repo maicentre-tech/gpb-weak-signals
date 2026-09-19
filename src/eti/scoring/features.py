@@ -49,7 +49,11 @@ class FeatureValue:
 
 
 def _window_total(series: TechnologySeries, metric: str, months: int, offset: int = 0) -> float:
-    periods = series.shifted_window(months, offset) if offset else series.window(months)
+    periods = (
+        series.shifted_window(months, offset, metric=metric)
+        if offset
+        else series.window(months, metric=metric)
+    )
     return series.total(metric, periods)
 
 
@@ -63,7 +67,11 @@ def _window_covered(
     за прекратившуюся активность. Если покрыто меньше ``min_share`` окна,
     прирост по этой метрике не считается вовсе — вес уйдёт другим (§24.19).
     """
-    periods = series.shifted_window(months, offset) if offset else series.window(months)
+    periods = (
+        series.shifted_window(months, offset, metric=metric)
+        if offset
+        else series.window(months, metric=metric)
+    )
     if not periods:
         return False
     covered = sum(1 for p in periods if p.is_available(metric))

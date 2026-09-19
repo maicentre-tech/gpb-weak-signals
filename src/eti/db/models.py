@@ -328,6 +328,13 @@ class Technology(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(32), default="active")
     ontology_version: Mapped[str] = mapped_column(String(64), nullable=False, default="0.1.0")
 
+    origin: Mapped[str] = mapped_column(String(32), default="seeded")
+    """seeded — вписана в онтологию руками; discovered — найдена
+    discovery-контуром и подтверждена экспертом. Доля discovered со
+    временем показывает, обнаруживает ли система новое или только
+    отслеживает известное."""
+    discovered_at: Mapped[date | None] = mapped_column(Date)
+
     first_observed_date: Mapped[date | None] = mapped_column(Date)
     """first sustained observation (§24.3), не первая случайная публикация."""
 
@@ -591,9 +598,45 @@ class TrendScore(Base):
     maturity_stage: Mapped[MaturityStage | None] = mapped_column(String(32))
 
     emerging_score: Mapped[float] = mapped_column(Float, nullable=False)
+    """Сводный ETS §24.13. Остаётся как интерпретируемый baseline даже
+    после появления обучаемого ранжирования: для решений инвестиционного
+    характера объяснимость не опция."""
+
+    # --- Три контура v1.5 ---
+    early_warning_score: Mapped[float | None] = mapped_column(Float)
+    """Что зашевелилось. Только источники с малым лагом, обновляется чаще,
+    высокая чувствительность, низкая точность."""
+    confirmed_score: Mapped[float | None] = mapped_column(Float)
+    """Что закрепилось. Научные, патентные и R&D данные с их лагом."""
+    signal_delta: Mapped[float | None] = mapped_column(Float)
+    """early_warning − confirmed. Положительная дельта — ранний сигнал без
+    подтверждения: либо хайп, либо то самое раннее обнаружение. Именно
+    эта разница, а не сам балл, является продуктом."""
+    signal_status: Mapped[str | None] = mapped_column(String(64))
+    """early_signal | confirming | confirmed | fading | hype_suspected"""
+
+    detector_scores: Mapped[dict] = mapped_column(JSONB, default=dict)
+    """Ансамбль §8: research | adoption | ip_commercial | regulatory_attention.
+    Разные технологии проявляются по-разному, и профиль детекторов
+    информативнее одного числа."""
+
+    change_point_date: Mapped[date | None] = mapped_column(Date)
+    change_point_confidence: Mapped[float | None] = mapped_column(Float)
+    """Дата статистически значимого перелома. Для раннего предупреждения
+    она информативнее величины прироста."""
+
+    temporal_novelty: Mapped[float | None] = mapped_column(Float)
+    semantic_novelty: Mapped[float | None] = mapped_column(Float)
+    """Новизна содержательная, а не только возрастная."""
+
     strategic_relevance: Mapped[float | None] = mapped_column(Float)
     strategic_priority: Mapped[float | None] = mapped_column(Float)
     evidence_confidence: Mapped[float] = mapped_column(Float, nullable=False)
+
+    signal_availability: Mapped[dict] = mapped_column(JSONB, default=dict)
+    """Какие сигналы были доступны и какие из них поддаются историческому
+    воспроизведению. В backtest недоступный сигнал помечается
+    signal_available=false и исключается, а не реконструируется."""
 
     effective_weights: Mapped[dict] = mapped_column(JSONB, default=dict)
     """Фактические веса после перераспределения по §24.19 — без них
@@ -837,3 +880,124 @@ class AnalysisJob(Base):
     error_detail: Mapped[str | None] = mapped_column(Text)
 
     __table_args__ = (Index("ix_jobs_status", "status", "requested_at"),)
+
+
+# ---------------------------------------------------------------------------
+# v1.5: профиль свежести источника, три контура, discovery
+# ---------------------------------------------------------------------------
+
+
+class SourceFreshness(Base, TimestampMixin):
+    """Измеренный профиль свежести источника.
+
+    Заменяет деление источников на «быстрые» и «медленные»: это свойство
+    измеряется, а не назначается ярлыком. arXiv быстрее OpenAlex, но
+    конкретный журнал внутри OpenAlex может индексироваться за неделю,
+    а другой — за год.
+
+    Две разные величины, которые нельзя смешивать:
+
+    * ``observation_lag`` — сколько проходит между событием и моментом,
+      когда мы его увидели. Измеряется только на инкрементальных
+      загрузках: при историческом backfill разница между ``published_at``
+      и ``first_seen_at`` отражает дату запуска проекта, а не поведение
+      источника.
+    * ``indexing_lag_months`` — сколько последних месяцев источник ещё
+      недозаполнил. Оценивается по форме хвоста помесячных объёмов и
+      доступна сразу, без накопления истории.
+    """
+
+    __tablename__ = "source_freshness"
+
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("sources.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    indexing_lag_months: Mapped[float | None] = mapped_column(Float)
+    """Сколько последних месяцев исключать из окон динамики."""
+    indexing_lag_method: Mapped[str | None] = mapped_column(String(64))
+    """volume_profile | declared | manual — чем получено значение."""
+
+    observation_lag_p50_days: Mapped[float | None] = mapped_column(Float)
+    observation_lag_p90_days: Mapped[float | None] = mapped_column(Float)
+    observation_sample_size: Mapped[int] = mapped_column(Integer, default=0)
+
+    update_frequency_hours: Mapped[float | None] = mapped_column(Float)
+    """Фактическая периодичность появления новых записей."""
+
+    is_backtestable: Mapped[bool] = mapped_column(Boolean, default=True)
+    """Можно ли восстановить состояние источника на прошлую дату.
+
+    False означает, что признаки, построенные на этом источнике,
+    исключаются из исторического эксперимента с пометкой
+    ``signal_available = false``, а не реконструируются из сегодняшних
+    значений. Выдуманное прошлое хуже отсутствующего.
+    """
+    backtest_note: Mapped[str | None] = mapped_column(Text)
+
+    measured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CandidateTechnology(Base, TimestampMixin):
+    """Кандидат в технологии, найденный discovery-контуром.
+
+    Правило «нет маппинга на онтологию — значит новая технология» даёт
+    поток мусорных кластеров: любой шум, любая плохо сшитая тема и любой
+    артефакт эмбеддинга проходят такой фильтр. Поэтому кластер становится
+    кандидатом только после Discovery Candidate Score выше порога, а
+    технологией — только после подтверждения экспертом.
+    """
+
+    __tablename__ = "candidate_technologies"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    cluster_run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("cluster_runs.id"), nullable=False)
+    cluster_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+
+    suggested_name: Mapped[str | None] = mapped_column(String(512))
+    suggested_name_ru: Mapped[str | None] = mapped_column(String(512))
+    description: Mapped[str | None] = mapped_column(Text)
+    naming_model_version: Mapped[str | None] = mapped_column(String(128))
+    """Версия LLM, предложившей название. Название — единственное, что
+    здесь делает модель; обнаружение выполняется статистикой."""
+
+    centroid: Mapped[list[float] | None] = mapped_column(Vector(1024))
+    document_count: Mapped[int] = mapped_column(Integer, default=0)
+    first_period: Mapped[date | None] = mapped_column(Date)
+    last_period: Mapped[date | None] = mapped_column(Date)
+    representative_document_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), default=list
+    )
+
+    # --- Компоненты Discovery Candidate Score ---
+    semantic_coherence: Mapped[float | None] = mapped_column(Float)
+    temporal_growth: Mapped[float | None] = mapped_column(Float)
+    acceleration: Mapped[float | None] = mapped_column(Float)
+    semantic_distance: Mapped[float | None] = mapped_column(Float)
+    """Удалённость от существующей онтологии — не от ближайшего документа."""
+    source_diversity: Mapped[float | None] = mapped_column(Float)
+    cross_source_consistency: Mapped[float | None] = mapped_column(Float)
+    volume_sufficiency: Mapped[float | None] = mapped_column(Float)
+
+    discovery_score: Mapped[float] = mapped_column(Float, nullable=False)
+    score_components: Mapped[dict] = mapped_column(JSONB, default=dict)
+    scoring_version: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    status: Mapped[str] = mapped_column(String(32), default="pending")
+    """pending | promoted | rejected | merged_into_existing"""
+    promoted_technology_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("technologies.id")
+    )
+    nearest_technology_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("technologies.id")
+    )
+    nearest_similarity: Mapped[float | None] = mapped_column(Float)
+
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_reason: Mapped[str | None] = mapped_column(Text)
+
+    __table_args__ = (
+        Index("ix_candidates_status_score", "status", "discovery_score"),
+        UniqueConstraint("cluster_run_id", "cluster_id", name="uq_candidate_per_run"),
+    )

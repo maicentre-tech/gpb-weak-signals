@@ -1,0 +1,38 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: eti
+      POSTGRES_USER: eti
+      POSTGRES_PASSWORD: eti
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eti -d eti"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build: .
+    environment:
+      ETI_DATABASE_URL: postgresql+psycopg://eti:eti@db:5432/eti
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./artifacts:/app/artifacts:ro
+
+  frontend:
+    build: ./frontend
+    environment:
+      ETI_API_URL: http://api:8000
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:

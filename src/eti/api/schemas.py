@@ -36,6 +36,9 @@ class TrendSummary(BaseModel):
     strategic_relevance: float | None = None
     strategic_priority: float | None = None
     evidence_confidence: float
+    classifier_confidence: float | None = None
+    signal_status: str | None = None
+    exclusion_reason: str | None = None
     maturity: str | None = None
     passes_filters: bool
     """§24.20: технология может попасть в ответ, не пройдя пороги.
@@ -55,6 +58,17 @@ class QueryResponse(BaseModel):
     reference_population_size: int | None = None
     results: list[TrendSummary]
     warnings: list[str] = Field(default_factory=list)
+
+
+class SignalStats(BaseModel):
+    """Счётчики для главного экрана по последнему snapshot."""
+
+    candidates: int
+    eligible: int
+    confidence_over_75: int
+    mature_excluded: int
+    hype_suspected: int
+    noise_excluded: int
 
 
 class JobResponse(BaseModel):
@@ -96,6 +110,11 @@ class SourceReference(BaseModel):
     title: str | None
     url: str | None
     source_code: str
+    source_name: str
+    source_type: str
+    language_original: str | None
+    trust_level: str
+    trust_score: float
     published_at: datetime | None
     mapping_score: float
     mapping_status: str
@@ -116,6 +135,10 @@ class TrendCardResponse(BaseModel):
     scores: SignalProfile
     emerging_score: float
     evidence_confidence: float
+    classifier_confidence: float | None = None
+    signal_status: str | None = None
+    exclusion_reason: str | None = None
+    key_predictors: list[dict[str, float | str]] = Field(default_factory=list)
     strategic_relevance: float | None
     effective_weights: dict[str, float]
     metric_status: dict[str, str]
