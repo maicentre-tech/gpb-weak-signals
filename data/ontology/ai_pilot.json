@@ -1,0 +1,121 @@
+{
+  "ontology_version": "0.1.0-pilot",
+  "domain": "Технологии в ИИ",
+  "note": "Стартовая онтология пилота. §6.2: собственная таксономия, OpenAlex Topics — один из якорей, а не master. Русские алиасы нужны для RU↔EN benchmark (§23.1).",
+  "technologies": [
+    {
+      "canonical_name": "Agentic AI / Autonomous AI Agents",
+      "canonical_name_ru": "Агентный ИИ / автономные ИИ-агенты",
+      "aliases": ["agentic ai", "ai agents", "autonomous agents", "agentic workflows", "multi-agent systems", "agentic systems", "автономные агенты", "агентные системы", "мультиагентные системы", "ии-агенты"],
+      "arxiv_categories": ["cs.MA"],
+      "github_topics": ["agentic-ai", "ai-agents", "agents", "autonomous-agents", "multi-agent"]
+    },
+    {
+      "canonical_name": "Retrieval-Augmented Generation",
+      "canonical_name_ru": "Генерация с извлечением (RAG)",
+      "aliases": ["retrieval augmented generation", "rag", "retrieval-augmented generation", "генерация с извлечением", "поиск с дополнением"],
+      "github_topics": ["rag", "retrieval-augmented-generation", "vector-search"]
+    },
+    {
+      "canonical_name": "Post-Quantum Cryptography",
+      "canonical_name_ru": "Постквантовая криптография",
+      "aliases": ["post-quantum cryptography", "postquantum cryptography", "pqc", "quantum-resistant cryptography", "lattice-based cryptography", "постквантовая криптография", "квантово-устойчивая криптография"],
+      "arxiv_categories": ["cs.CR"],
+      "github_topics": ["post-quantum-cryptography", "pqc", "kyber", "dilithium"]
+    },
+    {
+      "canonical_name": "Zero-Knowledge Proofs",
+      "canonical_name_ru": "Доказательства с нулевым разглашением",
+      "aliases": ["zero-knowledge proof", "zero knowledge proofs", "zkp", "zk-snark", "zk-stark", "доказательства с нулевым разглашением", "нулевое разглашение"],
+      "github_topics": ["zero-knowledge", "zk-snarks", "zkp", "circom"]
+    },
+    {
+      "canonical_name": "Privacy-Preserving Machine Learning",
+      "canonical_name_ru": "Машинное обучение с сохранением приватности",
+      "aliases": ["privacy-preserving machine learning", "federated learning", "differential privacy", "secure aggregation", "федеративное обучение", "дифференциальная приватность", "приватное машинное обучение"],
+      "arxiv_categories": ["cs.CR", "cs.LG"],
+      "github_topics": ["federated-learning", "differential-privacy", "privacy-preserving"]
+    },
+    {
+      "canonical_name": "Confidential Computing",
+      "canonical_name_ru": "Конфиденциальные вычисления",
+      "aliases": ["confidential computing", "trusted execution environment", "tee", "secure enclave", "sgx", "конфиденциальные вычисления", "доверенная среда исполнения"],
+      "github_topics": ["confidential-computing", "tee", "sgx", "enclave"]
+    },
+    {
+      "canonical_name": "Large Language Model Reasoning",
+      "canonical_name_ru": "Рассуждение больших языковых моделей",
+      "aliases": ["chain-of-thought", "llm reasoning", "reasoning models", "test-time compute", "chain of thought", "цепочка рассуждений", "рассуждения языковых моделей"],
+      "arxiv_categories": ["cs.CL"],
+      "github_topics": ["chain-of-thought", "reasoning", "llm-reasoning"]
+    },
+    {
+      "canonical_name": "Model Context Protocol / Tool Use",
+      "canonical_name_ru": "Протоколы подключения инструментов к моделям",
+      "aliases": ["model context protocol", "mcp", "tool use", "function calling", "tool calling", "вызов функций", "подключение инструментов"],
+      "github_topics": ["mcp", "model-context-protocol", "function-calling", "tool-use"]
+    },
+    {
+      "canonical_name": "Synthetic Data Generation",
+      "canonical_name_ru": "Генерация синтетических данных",
+      "aliases": ["synthetic data", "synthetic data generation", "data augmentation", "синтетические данные", "генерация синтетических данных"],
+      "github_topics": ["synthetic-data", "data-generation"]
+    },
+    {
+      "canonical_name": "AI Fraud Detection",
+      "canonical_name_ru": "ИИ в выявлении мошенничества",
+      "aliases": ["fraud detection", "anti-money laundering", "aml", "anomaly detection for fraud", "выявление мошенничества", "антифрод", "противодействие отмыванию"],
+      "github_topics": ["fraud-detection", "anti-fraud", "aml"]
+    },
+    {
+      "canonical_name": "Graph Neural Networks",
+      "canonical_name_ru": "Графовые нейронные сети",
+      "aliases": ["graph neural network", "gnn", "graph representation learning", "графовые нейронные сети", "графовые сети"],
+      "github_topics": ["graph-neural-networks", "gnn", "pytorch-geometric"]
+    },
+    {
+      "canonical_name": "Vector Databases",
+      "canonical_name_ru": "Векторные базы данных",
+      "aliases": ["vector database", "vector search", "approximate nearest neighbor", "ann search", "векторная база данных", "векторный поиск"],
+      "github_topics": ["vector-database", "vector-search", "embeddings", "ann"]
+    },
+    {
+      "canonical_name": "Quantum Key Distribution",
+      "canonical_name_ru": "Квантовое распределение ключей",
+      "aliases": ["quantum key distribution", "qkd", "quantum cryptography", "квантовое распределение ключей", "квантовая криптография"],
+      "arxiv_categories": ["quant-ph"],
+      "github_topics": ["quantum-cryptography", "qkd"]
+    },
+    {
+      "canonical_name": "Explainable AI",
+      "canonical_name_ru": "Объяснимый ИИ",
+      "aliases": ["explainable ai", "xai", "interpretability", "mechanistic interpretability", "объяснимый ии", "интерпретируемость"],
+      "github_topics": ["explainable-ai", "interpretability", "xai"]
+    },
+    {
+      "canonical_name": "AI Model Compression",
+      "canonical_name_ru": "Сжатие моделей ИИ",
+      "aliases": ["model compression", "quantization", "knowledge distillation", "pruning", "сжатие моделей", "квантизация", "дистилляция знаний"],
+      "github_topics": ["quantization", "model-compression", "knowledge-distillation"]
+    },
+    {
+      "canonical_name": "Homomorphic Encryption",
+      "canonical_name_ru": "Гомоморфное шифрование",
+      "aliases": ["homomorphic encryption", "fully homomorphic encryption", "fhe", "гомоморфное шифрование"],
+      "github_topics": ["homomorphic-encryption", "fhe", "seal"]
+    },
+    {
+      "canonical_name": "Multimodal Foundation Models",
+      "canonical_name_ru": "Мультимодальные базовые модели",
+      "aliases": ["multimodal model", "vision-language model", "vlm", "multimodal foundation model", "мультимодальные модели", "зрительно-языковые модели"],
+      "arxiv_categories": ["cs.CV"],
+      "github_topics": ["multimodal", "vision-language", "vlm"]
+    },
+    {
+      "canonical_name": "AI Agent Evaluation & Safety",
+      "canonical_name_ru": "Оценка и безопасность ИИ-агентов",
+      "aliases": ["ai safety", "agent evaluation", "llm evaluation", "red teaming", "alignment", "безопасность ии", "оценка агентов", "выравнивание"],
+      "github_topics": ["ai-safety", "llm-evaluation", "red-teaming", "alignment"]
+    }
+  ]
+}
