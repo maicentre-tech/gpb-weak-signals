@@ -1,0 +1,58 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "aBY98YW9nyY1gEuWKpzgh"
+uri = "file://.local/outputs/ETI-Jury-Presentation.pdf"
+type = "pdf"
+title = "Emerging Technology Intelligence (PDF)"
+description = "PDF verification export of the current 9-slide jury presentation."
+logical_id = "2c370566-50ce-4106-88cf-627e7caa7c1e"
+content_hash = "sha256:e57dc7c652ddeed65de197792516db15c3529b69a2fa110d0cb57235cb6a4922"
+size = 900040
+mtime_ms = 1790374873429
+storage_uri = "gcs://replit-rams-assets-kira/rams/assets/repl:23a5e64a-79c8-4052-890a-91a3c90f629a/2c370566-50ce-4106-88cf-627e7caa7c1e/72f62341-0032-4380-a562-fed64d69de72"
+storage_version_token = "1790374877381315"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "tziz8litU40ZMUZee7oo6"
+uri = "file://.local/outputs/ETI-Jury-Presentation.pptx"
+type = "slides"
+title = "Emerging Technology Intelligence (PPTX)"
+description = "PPTX verification export of the current 9-slide jury presentation."
+logical_id = "d4b4adf6-36bb-4900-a47b-f52b85f58df3"
+content_hash = "sha256:18d505bbd292278f7f268c3bcd5808c86a739b10216ca586d95d9cffc61c6240"
+size = 1297986
+mtime_ms = 1790374876745
+storage_uri = "gcs://replit-rams-assets-kira/rams/assets/repl:23a5e64a-79c8-4052-890a-91a3c90f629a/d4b4adf6-36bb-4900-a47b-f52b85f58df3/cf51d2b6-c29d-4ca0-8894-059b93b57b66"
+storage_version_token = "1790374878400039"
+content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+[[outputs]]
+id = "oGFypNERqsabN457mVWl0"
+uri = "file://.local/outputs/Emerging-Technology-Intelligence.pdf"
+type = "pdf"
+title = "Emerging Technology Intelligence (PDF)"
+description = "Verified 12-slide PDF export of the ETI jury presentation."
+logical_id = "9cb01884-9994-453d-8411-1220bd43c4a1"
+content_hash = "sha256:9d23affa401506f5f0fe83deb7c89893614b26951ed783931eed36405df7eca8"
+size = 1105777
+mtime_ms = 1790433978835
+storage_uri = "gcs://replit-rams-assets-kira/rams/assets/repl:23a5e64a-79c8-4052-890a-91a3c90f629a/9cb01884-9994-453d-8411-1220bd43c4a1/581150b4-7e21-4762-b306-adc1f438535c"
+storage_version_token = "1790433979639116"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "cy9i1z6lI_MEr6asTvA27"
+uri = "file://.local/outputs/Emerging-Technology-Intelligence.pptx"
+type = "slides"
+title = "Emerging Technology Intelligence (PPTX)"
+description = "Verified 12-slide PowerPoint export of the ETI jury presentation."
+logical_id = "eb062d96-3c04-409e-a9ca-d8445015fd93"
+content_hash = "sha256:aed43b8aea632720dac582f97626c69e1e574073eca5553adf93f04cc9021442"
+size = 1669877
+mtime_ms = 1790433985699
+storage_uri = "gcs://replit-rams-assets-kira/rams/assets/repl:23a5e64a-79c8-4052-890a-91a3c90f629a/eb062d96-3c04-409e-a9ca-d8445015fd93/f92d83a2-e1e4-48d8-9ab3-aeb4e77d46a0"
+storage_version_token = "1790433986162381"
+content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"

@@ -1,0 +1,25 @@
+{
+  "name": "eti-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test:discovery-report": "rm -rf /tmp/eti-discovery-report-test-build && tsc --target ES2020 --module commonjs --moduleResolution node --skipLibCheck --outDir /tmp/eti-discovery-report-test-build --rootDir . src/lib/api.ts src/lib/discovery-report.ts && ETI_REPORT_BUILD_DIR=/tmp/eti-discovery-report-test-build node --test tests/discovery-report.test.cjs"
+  },
+  "dependencies": {
+    "next": "^16.3.5",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "recharts": "^3.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.5",
+    "@types/react": "19.0.7",
+    "@types/react-dom": "19.0.3",
+    "typescript": "5.7.3"
+  }
+}

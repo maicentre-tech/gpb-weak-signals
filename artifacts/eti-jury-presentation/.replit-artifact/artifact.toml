@@ -1,0 +1,28 @@
+kind = "slides"
+previewPath = "/eti-jury-presentation/"
+title = "Emerging Technology Intelligence"
+description = "Девятислайдовая русскоязычная презентация прототипа аналитического контура Emerging Technology Intelligence для жюри хакатона."
+version = "1.0.0"
+id = "artifacts/eti-jury-presentation"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/eti-jury-presentation/" ]
+localPort = 24406
+
+[services.development]
+run = "pnpm --filter @workspace/eti-jury-presentation run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/eti-jury-presentation", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/eti-jury-presentation/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24406"
+BASE_PATH = "/eti-jury-presentation/"

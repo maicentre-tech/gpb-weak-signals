@@ -1,0 +1,57 @@
+kind = "web"
+previewPath = "/"
+title = "ETI Jury Stand"
+description = "Публичный read-only интерактивный стенд Emerging Technology Intelligence, использующий существующий Next.js интерфейс и FastAPI backend."
+version = "1.0.0"
+id = "artifacts/eti-jury-stand"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/", "/_next/hmr" ]
+localPort = 26267
+
+[services.development]
+run = 'root="$PWD"; while [[ ! -f "$root/pnpm-workspace.yaml" && "$root" != / ]]; do root="$(dirname "$root")"; done; exec bash "$root/gpb-weak-signals/scripts/run-public-frontend.sh" dev'
+
+[services.production]
+build = [ 'bash', '-lc', 'root="$PWD"; while [[ ! -f "$root/pnpm-workspace.yaml" && "$root" != / ]]; do root="$(dirname "$root")"; done; cd "$root/gpb-weak-signals/frontend" && NEXT_TELEMETRY_DISABLED=1 npm ci && NEXT_TELEMETRY_DISABLED=1 npm run build -- --webpack' ]
+
+[services.production.run]
+args = [ 'bash', '-lc', 'root="$PWD"; while [[ ! -f "$root/pnpm-workspace.yaml" && "$root" != / ]]; do root="$(dirname "$root")"; done; exec bash "$root/gpb-weak-signals/scripts/run-public-frontend.sh" start' ]
+
+[services.production.run.env]
+NODE_ENV = "production"
+PORT = "26267"
+
+[services.env]
+BASE_PATH = "/"
+PORT = "26267"
+
+[[services]]
+name = "ETI FastAPI"
+paths = [ "/api/v1" ]
+localPort = 26268
+
+[services.development]
+run = 'root="$PWD"; while [[ ! -f "$root/pnpm-workspace.yaml" && "$root" != / ]]; do root="$(dirname "$root")"; done; exec bash "$root/gpb-weak-signals/scripts/run-public-api.sh"'
+
+[services.production]
+build = [ 'bash', '-lc', 'root="$PWD"; while [[ ! -f "$root/pnpm-workspace.yaml" && "$root" != / ]]; do root="$(dirname "$root")"; done; python3 -m pip install --no-cache-dir "$root/gpb-weak-signals"' ]
+
+[services.production.run]
+args = [ 'bash', '-lc', 'root="$PWD"; while [[ ! -f "$root/pnpm-workspace.yaml" && "$root" != / ]]; do root="$(dirname "$root")"; done; exec env ETI_ENVIRONMENT=production bash "$root/gpb-weak-signals/scripts/run-public-api.sh"' ]
+
+[services.production.run.env]
+ETI_DEBUG = "false"
+ETI_EXPERT_LIVE_SEARCH_ENABLED = "false"
+ETI_PUBLIC_DATA_ENABLED = "true"
+ETI_PUBLIC_READ_ONLY = "true"
+PORT = "26268"
+
+[services.production.health.startup]
+path = "/api/v1/health"
+
+[services.env]
+ETI_ENVIRONMENT = "local"
+PORT = "26268"

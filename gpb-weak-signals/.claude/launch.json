@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "eti-api",
+      "runtimeExecutable": ".venv/bin/uvicorn",
+      "runtimeArgs": ["eti.api.app:app", "--port", "8000"],
+      "port": 8000
+    },
+    {
+      "name": "eti-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
+      "port": 3000
+    }
+  ]
+}

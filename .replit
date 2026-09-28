@@ -1,0 +1,73 @@
+modules = ["nodejs-24", "python-base-3.13", "postgresql-16"]
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "ETI Jury Stand"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "ETI Stand API"
+
+[[workflows.workflow]]
+name = "ETI Jury Stand"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = """
+cd gpb-weak-signals/frontend
+export ETI_API_URL=http://127.0.0.1:8000
+exec ./node_modules/.bin/next start -p 5000 --hostname 0.0.0.0"""
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "ETI Stand API"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = """
+cd gpb-weak-signals
+export PYTHONPATH=src
+export ETI_ENVIRONMENT=local
+export ETI_PUBLIC_READ_ONLY=true
+export ETI_DATABASE_URL=\"$(python3 -c 'import os; u=os.environ[\"DATABASE_URL\"]; u=u.replace(\"postgresql://\",\"postgresql+psycopg://\",1) if u.startswith(\"postgresql://\") else u.replace(\"postgres://\",\"postgresql+psycopg://\",1) if u.startswith(\"postgres://\") else u; print(u)')\"
+python3 -m alembic upgrade head
+python3 scripts/seed_ontology.py data/ontology/ai_pilot.json --preserve-existing
+python3 scripts/seed_sources.py --preserve-existing --codes openalex
+exec python3 -m uvicorn eti.api.app:app --host 0.0.0.0 --port 8000"""
+waitForPort = 8000
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
+
+[nix]
+channel = "stable-25_05"
+packages = ["glibcLocales", "libiconv", "libxcrypt", "pkg-config", "postgresql", "xsimd"]

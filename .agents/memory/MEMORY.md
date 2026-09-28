@@ -1,0 +1,5 @@
+- [Nested Docker runtime](docker-runtime.md) — local Docker responses do not guarantee Replit workflow port forwarding; nested health checks and bridge routing may also fail.
+- [ETI test database runtime](postgres-test-runtime.md) — native test PostgreSQL lacks pgvector; the managed dev DB has it but is shared application state.
+- [Transient package install side effects](transient-package-install.md) — one-off package installs may alter shared runtime config; inspect and clean generated diffs.
+- [Frontend test runtime](frontend-test-runtime.md) — compile focused TypeScript helpers to CommonJS for node:test; ESM-default flags may be unavailable here.
+- [Artifact workflow cwd](artifact-workflow-cwd.md) — managed artifact services start inside their artifact directory; resolve workspace root before sibling paths.

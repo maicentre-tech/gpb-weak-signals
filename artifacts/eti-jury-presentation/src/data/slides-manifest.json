@@ -1,0 +1,106 @@
+[
+  {
+    "id": "edb7d962-e3b5-4972-ae1d-31ed08c3d896",
+    "position": 1,
+    "filepath": "src/pages/slides/01Title.tsx",
+    "title": "Emerging Technology Intelligence",
+    "description": "Image: лаконичная схема научных публикаций, патентных записей и кода, сходящихся в один сигнал",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a0de5e43-f452-49c6-b3b3-59aab49f4d99",
+    "position": 2,
+    "filepath": "src/pages/slides/02Signal.tsx",
+    "title": "Новый сигнал начинается с разрозненных данных",
+    "description": "Новый сигнал начинается с разрозненных данных",
+    "speakerNotes": ""
+  },
+  {
+    "id": "13fd4254-bce9-4c42-a434-57fccae1d305",
+    "position": 3,
+    "filepath": "src/pages/slides/03Sources.tsx",
+    "title": "Источники проходят правовой фильтр",
+    "description": "Image: четыре группы источников с линиями provenance к единой карточке доказательств",
+    "speakerNotes": ""
+  },
+  {
+    "id": "ef5aec39-8d69-44d6-ad9f-5d8c0241c499",
+    "position": 4,
+    "filepath": "src/pages/slides/04Discovery.tsx",
+    "title": "Запрос вне каталога — отдельный discovery-процесс",
+    "description": "Image: схема «запрос → coverage check → snapshot или open search → review»",
+    "speakerNotes": ""
+  },
+  {
+    "id": "9cc9a993-4263-4387-9f19-67bf448a2b5e",
+    "position": 6,
+    "filepath": "src/pages/slides/05Scoring.tsx",
+    "title": "От признаков к объяснимому ранжированию",
+    "description": "От признаков к объяснимому ранжированию",
+    "speakerNotes": ""
+  },
+  {
+    "id": "1e8ab964-2bbc-46d5-a023-70c845195608",
+    "position": 8,
+    "filepath": "src/pages/slides/06Evidence.tsx",
+    "title": "Доказательства остаются рядом с выводом",
+    "description": "Image: карточка технологии с раскрытой таблицей первоисточников",
+    "speakerNotes": ""
+  },
+  {
+    "id": "85663478-58d6-4bac-822a-1e06642bba53",
+    "position": 9,
+    "filepath": "src/pages/slides/07Validation.tsx",
+    "title": "ML-валидация: протокол готов, labels ещё нужны",
+    "description": "ML-валидация: протокол готов, labels ещё нужны",
+    "speakerNotes": ""
+  },
+  {
+    "id": "5dab234c-70b9-40fb-a239-3434a9879b93",
+    "position": 11,
+    "filepath": "src/pages/slides/08RussianCard.tsx",
+    "title": "Русская карточка не заменяет оригинал",
+    "description": "Русская карточка не заменяет оригинал",
+    "speakerNotes": ""
+  },
+  {
+    "id": "3f9ed2da-86bf-4ed2-9f21-c20f1ccd8d6f",
+    "position": 12,
+    "filepath": "src/pages/slides/09Pilot.tsx",
+    "title": "Что нужно, чтобы перейти к пилоту",
+    "description": "Что нужно, чтобы перейти к пилоту",
+    "speakerNotes": ""
+  },
+  {
+    "id": "ac67e0e9-93bb-4bd8-a9d3-6e63ba1b49e2",
+    "position": 5,
+    "filepath": "src/pages/slides/05Architecture.tsx",
+    "title": "Архитектура разделяет сбор, анализ и интерфейс",
+    "description": "Архитектура FastAPI, PostgreSQL, ML/scoring, Next.js и LLM boundary",
+    "speakerNotes": ""
+  },
+  {
+    "id": "2d86b9aa-6976-44e9-9a29-8af66fbf6f9d",
+    "position": 7,
+    "filepath": "src/pages/slides/07SourceRanking.tsx",
+    "title": "Ранжирование учитывает качество и независимость источников",
+    "description": "Методика source family, trust, evidence weight и single-source gate",
+    "speakerNotes": ""
+  },
+  {
+    "id": "7bb4e99e-0ac7-41f0-8bdc-cb8d8b3b4b78",
+    "position": 10,
+    "filepath": "src/pages/slides/10Application.tsx",
+    "title": "Потенциал применения: эксперт получает проверяемые гипотезы",
+    "description": "Практическое применение без неподтверждённых ROI и коммерческих обещаний",
+    "speakerNotes": ""
+  },
+  {
+    "id": "b71ab2ab-f92c-442a-b40d-e32047b2ab40",
+    "position": 13,
+    "filepath": "src/pages/slides/Team.tsx",
+    "title": "Команда проекта",
+    "description": "Состав команды и заявленные направления компетенций",
+    "speakerNotes": ""
+  }
+]

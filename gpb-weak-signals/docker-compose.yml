@@ -1,0 +1,89 @@
+x-api-environment: &api-environment
+  ETI_DATABASE_URL: "postgresql+psycopg://eti:${ETI_POSTGRES_PASSWORD:?Set ETI_POSTGRES_PASSWORD in .env}@db:5432/eti"
+  ETI_ENVIRONMENT: "${ETI_ENVIRONMENT:-local}"
+  ETI_DEBUG: "${ETI_DEBUG:-false}"
+  ETI_CONTACT_EMAIL: "${ETI_CONTACT_EMAIL:-eti@example.org}"
+  ETI_GITHUB_TOKEN: "${ETI_GITHUB_TOKEN:-}"
+  ETI_SEMANTIC_SCHOLAR_KEY: "${ETI_SEMANTIC_SCHOLAR_KEY:-}"
+  ETI_CORDIS_API_KEY: "${ETI_CORDIS_API_KEY:-}"
+  ETI_EPO_OPS_KEY: "${ETI_EPO_OPS_KEY:-}"
+  ETI_EPO_OPS_SECRET: "${ETI_EPO_OPS_SECRET:-}"
+  ETI_LLM_BASE_URL: "${ETI_LLM_BASE_URL:-http://host.docker.internal:11434/v1}"
+  ETI_LLM_MODEL: "${ETI_LLM_MODEL:-qwen2.5:14b-instruct}"
+  ETI_LLM_API_KEY: "${ETI_LLM_API_KEY:-}"
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: eti
+      POSTGRES_USER: eti
+      POSTGRES_PASSWORD: "${ETI_POSTGRES_PASSWORD:?Set ETI_POSTGRES_PASSWORD in .env}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eti -d eti"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  bootstrap:
+    build: .
+    environment: *api-environment
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./data/ontology:/app/data/ontology:ro
+    command: ["sh", "scripts/bootstrap_compose.sh"]
+    restart: "no"
+
+  api:
+    build: .
+    environment: *api-environment
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:${ETI_API_PORT:-8000}:8000"
+    volumes:
+      - ./artifacts:/app/artifacts:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=5).read()",
+        ]
+      interval: 10s
+      timeout: 7s
+      retries: 12
+      start_period: 10s
+
+  frontend:
+    build: ./frontend
+    environment:
+      ETI_API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${ETI_UI_PORT:-3000}:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 7s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  postgres_data:
