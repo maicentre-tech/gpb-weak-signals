@@ -33,7 +33,7 @@ export default function ArchitectureSlide() {
           </div>
         </div>
         <div className="mt-[3vh] flex items-center justify-between border-t border-line/75 pt-[2vh]">
-          <p className="font-body text-[1.8vw] text-text">LLM — только русское объяснение на основании заранее отобранного evidence</p>
+          <p className="font-body text-[1.5vw] leading-[1.35] text-text">БД: Compose → db:5432 · Replit → ETI_DATABASE_URL / DATABASE_URL<br />LLM необязательна: локальный план поиска и карточка по evidence; публичный live — без LLM-планирования</p>
           <span className="font-body text-[1.5vw] font-semibold uppercase tracking-[0.1em] text-accent">не source of truth</span>
         </div>
       </div>

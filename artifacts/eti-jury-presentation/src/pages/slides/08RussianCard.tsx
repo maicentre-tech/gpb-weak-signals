@@ -20,13 +20,14 @@ export default function RussianCardSlide() {
               <div className="absolute left-[5%] top-[0.7vh] h-[45vh] w-[90%] rotate-[4deg] rounded-[0.8vw] border border-line bg-panel/70" />
               <div className="relative z-10 rounded-[0.8vw] border border-primary/25 bg-bg p-[2vw] shadow-[0_1.2vh_2.8vw_rgba(23,58,75,0.07)]">
                 <div className="flex items-center justify-between border-b border-line pb-[1.5vh]">
-                  <p className="font-display text-[1.75vw] font-semibold text-primary">Русская карточка</p>
-                  <span className="h-[0.8vh] w-[3vw] bg-accent" />
+                  <p className="font-display text-[1.75vw] font-semibold text-primary">Схема русской карточки</p>
+                  <span className="rounded-full border border-accent px-[0.7vw] py-[0.45vh] font-body text-[1.5vw] font-semibold text-accent">СХЕМА</span>
                 </div>
-                <div className="mt-[2vh] space-y-[1.1vh]">
-                  <div className="h-[0.85vh] w-[88%] bg-panel" />
-                  <div className="h-[0.85vh] w-[74%] bg-panel" />
-                  <div className="h-[0.85vh] w-[81%] bg-panel" />
+                <div className="mt-[2vh] rounded-[0.5vw] border border-dashed border-line bg-panel/35 p-[1.2vw]">
+                  <p className="font-body text-[1.5vw] font-semibold leading-[1.25] text-accent">Без реальных данных и текста источника</p>
+                  <p className="mt-[1.2vh] font-body text-[1.5vw] leading-[1.3] text-text">Русский summary: не сгенерирован</p>
+                  <p className="mt-[0.6vh] font-body text-[1.5vw] leading-[1.3] text-text">Исходный документ: не выбран</p>
+                  <p className="mt-[0.6vh] font-body text-[1.5vw] leading-[1.3] text-text">Проверка точности: не проводилась</p>
                 </div>
                 <div className="mt-[2.4vh] flex flex-wrap gap-[0.7vw]">
                   <span className="rounded-full border border-line px-[0.8vw] py-[0.55vh] font-body text-[1.5vw] text-primary">source IDs</span>
@@ -34,8 +35,7 @@ export default function RussianCardSlide() {
                 </div>
                 <div className="mt-[2.2vh] border-t border-line pt-[1.5vh]">
                   <p className="font-body text-[1.55vw] font-semibold text-muted">Оригинал</p>
-                  <div className="mt-[1vh] h-[0.7vh] w-[77%] bg-panel" />
-                  <div className="mt-[0.8vh] h-[0.7vh] w-[61%] bg-panel" />
+                  <p className="mt-[0.8vh] font-body text-[1.5vw] text-text">не приложен</p>
                 </div>
               </div>
               <p className="relative z-10 mt-[2vh] text-center font-body text-[1.55vw] font-semibold text-accent">человеческая проверка содержания</p>

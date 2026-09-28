@@ -37,6 +37,7 @@ from eti.db.models import (
     SourceCoverage,
 )
 from eti.ingestion.ratelimit import RateLimitExceeded
+from eti.source_policy import evaluate_source_policy, source_review_status
 from eti.sources.base import Connector, NormalizedDocument
 
 log = structlog.get_logger(__name__)
@@ -96,18 +97,26 @@ class IngestionRunner:
         return source
 
     def _check_license_gate(self, source: Source) -> None:
-        """§23.3: источник со статусом «license unclear» не подключается
-        к production ingestion автоматически."""
-        if source.license_status in (LicenseStatus.PROHIBITED, LicenseStatus.UNCLEAR):
-            if not self.allow_unclear_license:
-                raise PermissionError(
-                    f"{source.code}: license_status={source.license_status}. "
-                    "Загрузка заблокирована Legal Gate (§23.3). Для локальной "
-                    "разработки запускайте с allow_unclear_license=True."
-                )
+        """Require current approval; stale or changed terms can never be bypassed."""
+        decision = evaluate_source_policy(source)
+        if decision.allowed:
+            return
+
+        review_status, _review_reason = source_review_status(source)
+        status = str(source.license_status).casefold()
+        if (
+            self.allow_unclear_license
+            and status == str(LicenseStatus.UNCLEAR).casefold()
+            and review_status not in {"expired", "terms_changed"}
+        ):
             log.warning(
                 "license_gate_bypassed", source=source.code, status=source.license_status
             )
+            return
+
+        raise PermissionError(
+            f"{source.code}: {decision.reason} Загрузка заблокирована Legal Gate (§23.3)."
+        )
 
     async def _get_checkpoint(self, source: Source, stream: str) -> IngestionCheckpoint:
         result = await self.session.execute(

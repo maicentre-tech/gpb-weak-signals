@@ -1,32 +1,129 @@
-# Source-rights research for metadata discovery
+# Матрица прав на источники и запрос на подтверждение
 
-Research checked on 2026-09-26 against the official pages linked below. This is
-a technical policy summary, not legal advice or project-specific approval.
-The research date must **not** be copied into `Source.license_checked_at` as a
-legal review date. Live search stays blocked until the authorized owner confirms
-the intended fields, storage, derivative analytics, display, retention, and
-deployment scope for each source.
+**Дата проверки публичных официальных условий: 2026-09-28.** Страницы проверены
+как справочные источники, не как юридическое заключение. Это дата desk research,
+а не дата `Source.license_checked_at` и не согласование проекта. Ни адаптер,
+ни общедоступный URL, ни общий статус лицензии сервиса сами по себе не дают
+проекту права на запрошенные действия.
 
-| Source | Official policy and API references | Technical reading for this project | Approval still needed |
-|---|---|---|---|
-| OpenAlex | [Works API](https://docs.openalex.org/api-entities/works), [rate limits](https://docs.openalex.org/how-to-use-the-api/rate-limits-and-authentication), [content](https://openalex.org/our-content) | OpenAlex describes broad CC0/open metadata reuse. Abstracts are reconstructed from underlying works, so metadata rights do not automatically settle every abstract or derivative-summary use. Use the API, identify the client, and link/cite OpenAlex. | Confirm abstract scope, derived summaries, public/commercial display, attribution, and the project owner/review date. |
-| Crossref | [REST API](https://www.crossref.org/documentation/retrieve-metadata/rest-api/), [metadata](https://www.crossref.org/metadata/), [metadata license](https://www.crossref.org/documentation/retrieve-metadata/rest-api/rest-api-metadata-license/) | Crossref documents broad reuse for metadata. Publisher-deposited abstracts and references can have separate conditions; Crossref metadata does not license article full text. Identify the client, cache politely, preserve DOI/landing links, and cite Crossref. | Confirm abstract/reference-list scope, redistribution, commercial use, and publisher-specific restrictions. |
-| Semantic Scholar | [API product](https://www.semanticscholar.org/product/api), [API docs](https://api.semanticscholar.org/api-docs/), [API terms](https://www.semanticscholar.org/product/api#api-terms-of-use) | API access is not a blanket copyright license for every returned field. Abstracts, TLDRs, PDFs, embeddings, and bulk datasets may have separate rules. Keep attribution and source links; do not redistribute protected content or dumps. | Obtain confirmation for persistent storage, generated summaries/analytics, public or commercial use, and API/bulk limits. |
-| arXiv | [API basics](https://info.arxiv.org/help/api/basics.html), [license help](https://info.arxiv.org/help/license/index.html), [bulk data](https://info.arxiv.org/help/bulk_data/index.html) | Per-paper submission licenses vary; API access does not grant a blanket right to paper text. Metadata-derived counts are lower risk than abstracts, embeddings, or summaries. Respect the API delay guidance and link to each paper. | Confirm coverage of abstracts/authors/categories, summaries and embeddings, commercial/public use, and attribution. |
-| GitHub | [Terms](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service), [rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api), [REST overview](https://docs.github.com/en/rest/overview/resources-in-the-rest-api) | Public API metadata can be queried, but repository and user content remains subject to its owners' licenses. Do not assume permission for code, README text, avatars, or personal-data reuse. Honor rate headers, caching, attribution, and acceptable-use terms. | Confirm storage/use of owner identifiers, descriptions, topics, license identifiers, historical metrics, public display, privacy, and branding. |
-| GH Archive | [GH Archive](https://www.gharchive.org/), [hourly data](https://data.gharchive.org/), [GitHub terms](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) | GH Archive supports processing event archives into custom aggregates; it is not a blanket license to all underlying GitHub data. Store only the intended metadata/aggregates, not event payload contents; preserve provenance and apply privacy/retention controls. | Confirm underlying GitHub terms, event/user data retention, redistribution, and commercial/public use. |
-| Hugging Face | [Hub API](https://huggingface.co/docs/hub/api), [Terms of Service](https://huggingface.co/terms-of-service) | Hub API metadata can identify models and repository activity, but model cards, files, and weights have repo-specific licenses and terms. Metadata availability does not grant rights to redistribute artifacts or their text. | Confirm which metadata fields and metrics may be stored/displayed and exclude content/weights unless their individual licenses allow the use. |
-| PyPI | [JSON API](https://docs.pypi.org/api/json/), [Terms of Use](https://pypi.org/policy/terms-of-use/) | The JSON API provides package metadata; package descriptions and project materials may carry author/publisher rights. Package licenses apply to package content, not automatically to all registry metadata or derivative displays. | Confirm metadata persistence, package description reuse, attribution, retention, and commercial/public display. |
-| npm | [Registry API](https://github.com/npm/registry/blob/main/docs/REGISTRY-API.md), [Terms](https://www.npmjs.com/policies/terms) | Registry metadata is available through documented endpoints, but package content remains governed by package licenses and registry terms. Keep package links and avoid republishing package files or README content without checking their license. | Confirm metadata caching, description reuse, user/account data, attribution, and deployment scope. |
-| GDELT | [Data](https://www.gdeltproject.org/data.html), [DOC 2.0](https://blog.gdeltproject.org/gdelt-doc-2-0/) | GDELT describes its database as open for analysis, but that does not license republishing linked news text or images. Prefer URLs, metadata, and aggregates; keep query windows/record caps. | Confirm applicable API/data terms, publisher-originated fields, retention, derivative analytics, and commercial/public display. |
+В столбце «Условия / держатель» указан издатель официальных условий и известный
+класс правообладателей. Для содержимого, загруженного авторами, издателями или
+пользователями, фактический правообладатель может быть иным. «Планируемый
+scope» описывает только то, что проект хотел бы рассматривать; это не список
+уже разрешённых действий. **Для всех строк решение уполномоченного владельца
+проекта ожидает подтверждения.** Производная аналитика, хранение, публикация,
+коммерческое использование и развёртывание в Preview/production не разрешены
+этой исследовательской таблицей.
 
-## Gate state
+| Источник | Условия / возможный правообладатель | Официальные подтверждения, проверены 2026-09-28 | Планируемый scope (НЕ одобрен) | Решение владельца |
+|---|---|---|---|---|
+| OpenAlex | OpenAlex публикует позицию о CC0 для своих данных. Права на исходные публикации и отдельные abstracts могут зависеть от авторов/издателей и происхождения записи. | [Terms](https://openalex.org/terms) (страница указывает канонический PDF условий); [Our content](https://openalex.org/our-content); [Works API](https://docs.openalex.org/api-entities/works); [rate limits](https://docs.openalex.org/how-to-use-the-api/rate-limits-and-authentication) | Библиографические поля и abstract, передача ограниченных метаданных обработчику, признаки и агрегаты; хранение, русский summary, публичный/коммерческий показ и срок хранения требуют отдельного решения. | **ОЖИДАЕТСЯ** |
+| arXiv | Условия API и descriptive metadata публикует arXiv. Права на e-print остаются у соответствующих авторов/правообладателей и зависят от лицензии конкретной работы. | [API Terms of Use](https://info.arxiv.org/help/api/tou.html); [лицензии работ](https://info.arxiv.org/help/license/index.html); [bulk data](https://info.arxiv.org/help/bulk_data/index.html) | Метаданные, включая title, abstract, авторов, identifiers и категории, плюс ограниченная статистика; не считать разрешением на полный текст, embeddings или summaries. Требуется также подтвердить требуемую arXiv attribution. | **ОЖИДАЕТСЯ** |
+| GitHub REST API | Условия API задаёт GitHub; права на содержимое репозиториев и данные пользователей могут принадлежать авторам, организациям или иным лицам. Публичность репозитория не заменяет его лицензию. | [GitHub Terms, включая API Terms](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service); [REST API overview](https://docs.github.com/en/rest/overview/resources-in-the-rest-api); [rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api) | Метаданные репозитория и публичная активность; отдельно решить хранение owner/user identifiers, descriptions/topics, публичный показ, retention, privacy и использование trademarks. Код/README не входят в подразумеваемое разрешение. | **ОЖИДАЕТСЯ** |
+| GH Archive | Сервис публикует архив событий GitHub. Архивные записи могут содержать сведения и материалы третьих лиц; отдельное всеобъемлющее разрешение на производные действия этим не установлено. | [GH Archive](https://www.gharchive.org/); [архивные данные](https://data.gharchive.org/); [GitHub Terms](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) | Агрегированные признаки активности только после подтверждения источника событий, полей user/event, хранения, redisclosure, коммерческого и публичного использования. | **ОЖИДАЕТСЯ** |
+| Crossref | Crossref сообщает, что почти все его метаданные можно повторно использовать без ограничений, но abstracts могут быть защищены авторами/издателями; для них действует лицензия конкретной публикации. | [Metadata retrieval and licensing](https://www.crossref.org/documentation/retrieve-metadata/); [REST API](https://www.crossref.org/documentation/retrieve-metadata/rest-api/); [license metadata](https://www.crossref.org/documentation/principles-practices/best-practices/license/) | DOI и библиографические поля; abstracts и publisher-specific fields только после решения по лицензии записи. Подтвердить кэширование, агрегацию, публичный/коммерческий показ и retention. | **ОЖИДАЕТСЯ** |
+| Semantic Scholar | API предоставляет граф научных работ; доступ к API не рассматривается как blanket-лицензия на все abstracts, TLDRs, PDFs, embeddings или bulk datasets. Права на публикации могут принадлежать авторам/издателям. | [API overview and terms section](https://www.semanticscholar.org/product/api#api-terms-of-use); [API documentation](https://api.semanticscholar.org/api-docs/); [dataset license](https://api.semanticscholar.org/license) | Уточнить по каждому запрашиваемому полю право хранения и производной аналитики, включая summary; решить, допустимы ли публичное и коммерческое использование и какие ограничения API применяются. | **ОЖИДАЕТСЯ** |
+| Hugging Face Hub | Условия сервиса задаёт Hugging Face; права на model cards, datasets, файлы и модели могут принадлежать владельцам отдельных репозиториев и иметь разные лицензии. | [Terms of Service](https://huggingface.co/terms-of-service); [Hub API](https://huggingface.co/docs/hub/en/api) | Только перечисленные метаданные и агрегаты после подтверждения. Не выводить разрешение на чтение/хранение model cards, файлов, весов и dataset contents из доступности Hub API. | **ОЖИДАЕТСЯ** |
+| PyPI | Условия сервиса и API задаёт Python Software Foundation; права на загруженные описания, пакеты и сопутствующий контент принадлежат соответствующим загрузчикам/правообладателям и зависят от лицензии пакета. | [Действующие Terms of Service, включая API Terms](https://policies.python.org/pypi.org/Terms-of-Service/); [JSON API](https://docs.pypi.org/api/json/) | Пакетные метаданные и статистика; отдельно подтвердить хранение и показ description, retention, attribution и коммерческое/публичное использование. Лицензия пакета не автоматически лицензирует поля реестра. | **ОЖИДАЕТСЯ** |
+| npm | Условия сервиса задаёт npm; права на package contents и пользовательские материалы зависят от загрузчиков/правообладателей и лицензии каждого пакета. | [npm Terms and Licenses](https://www.npmjs.com/policies/terms); [Registry API documentation](https://github.com/npm/registry/blob/main/docs/REGISTRY-API.md) | Package metadata and download/activity metrics; подтвердить caching, descriptions, account/user data, attribution, retention и публичный/коммерческий scope. Не перепубликовывать package contents/README без проверки. | **ОЖИДАЕТСЯ** |
+| GDELT DOC 2.0 | GDELT описывает собственные данные как открытые для анализа. Это не устанавливает право перепубликовывать статьи, изображения, excerpts или иные материалы исходных СМИ. | [GDELT data](https://www.gdeltproject.org/data.html); [DOC 2.0](https://blog.gdeltproject.org/gdelt-doc-2-0/) | URL, дата и ограниченные записи/агрегаты; подтвердить точные возвращаемые поля, retention, производные признаки, публичный/коммерческий показ и запрет хранения полного текста СМИ. | **ОЖИДАЕТСЯ** |
+| PatentsView (USPTO) | USPTO описывает PatentsView как исследовательский проект/набор данных. Использование государственной базы не подтверждает автоматически права на все сторонние материалы, производные обогащения или API-условия проекта. | [PatentsView at USPTO](https://www.uspto.gov/ip-policy/economic-research/patentsview); [USPTO IP Policy](https://www.uspto.gov/ip-policy) | Патентные библиографические поля и аналитические агрегаты; владелец должен определить конкретный набор, ограничения на обогащённые поля, публичный/коммерческий показ и attribution. | **ОЖИДАЕТСЯ** |
+| CORDIS | Условия Европейской комиссии/Публикационного офиса разрешают повторное использование принадлежащего ЕС редакционного содержимого обычно по CC BY 4.0, если не указано иное. Для сторонних материалов могут потребоваться отдельные права; применимы требования по персональным данным. | [CORDIS legal notice](https://cordis.europa.eu/about/legal); [CORDIS data services](https://cordis.europa.eu/about/services); [EU copyright notice](https://data.europa.eu/en/copyright-notice) | Идентификаторы и проектные метаданные после проверки notices конкретных полей; подтвердить attribution, третий-party content, персональные данные, retention и публичный/коммерческий scope. | **ОЖИДАЕТСЯ** |
+| EPO OPS | EPO OPS terms предоставляют лицензию после принятия условий/заключения договора. Разрешают включение данных в продукты на изложенных условиях, но запрещают предоставлять или распространять сами данные как таковые. | [EPO OPS terms and conditions](https://www.epo.org/en/service-support/ordering/terms-and-conditions/ops-terms-and-conditions); [OPS documentation](https://link.epo.org/web/ops_documentation_1_2_5_en.pdf) | Источник не входит в текущий live-набор. До отдельного договора, подтверждения допустимого объёма/API-квот и разрешения продукта остаётся заблокирован; raw data не перепубликовывать. | **ОЖИДАЕТСЯ / БЛОКИРОВАН** |
 
-No source is marked legally approved by this research. Existing database source
-records remain unchanged. The P0 adapters are implemented, but the live-search
-gate still requires all of: enabled source, `approved` status, derivative
-analytics permission, license type, rights owner, and a legal review date.
+## Обязательное подтверждение владельца для каждой строки
 
-To clear the gate, the project owner/legal reviewer must provide a source-by-source
-decision and the exact permitted field/use scope. Until then, do not enable live
-retrieval or generated summaries for that source.
+До включения источника уполномоченный владелец проекта/прав должен записать и
+подтвердить отдельно для каждой строки:
+
+1. фактического правообладателя или основание полномочий на предоставление
+   данных и точные официальные условия/лицензию (с URL);
+2. конкретные разрешённые поля, запросы и операции, а также ограничения,
+   территорию и срок, если они применимы;
+3. хранение/кэширование, embeddings/RAG, производные признаки и summaries —
+   по каждому явно `да`/`нет` с границами;
+4. attribution, redisclosure, публичное и коммерческое использование, среды
+   Preview/production и retention/deletion;
+5. имя/роль подтвердившего уполномоченного лица, дату проверки и решение
+   `approved`, `restricted`, `unclear` или `prohibited`.
+
+В реестре это подтверждение хранится в `license_owner`,
+`license_evidence_url`, `license_scope`, `license_reviewed_by`,
+`license_checked_at` и `allows_derivative_analytics`; одного статуса
+`license_status=approved` недостаточно. Дата изучения условий в этой матрице
+не должна копироваться в `license_checked_at`. Пока поля не подтверждены,
+live-запросы остаются fail-closed.
+
+## Текущее состояние
+
+По состоянию на 2026-09-28 поисточниковое заключение независимого эксперта,
+официальное разрешение правообладателей и конкретные границы использования не
+получены. Общая инструкция «разрешено всё» не переносится в записи источников:
+она не определяет разные условия и права для каждого набора данных. Это не
+утверждение, что права существуют или отсутствуют; статус каждой строки выше —
+**ожидается проверка**. Значения в seed являются техническими заметками,
+не разрешением. `allows_derivative_analytics=true` нельзя выставлять до
+поисточникового подтверждения. Live-запросы не выполнялись и существующие
+записи источников в БД не менялись.
+
+## Форма заключения независимого эксперта
+
+Передать эту форму юристу/специалисту по правам на данные и ответственному
+владельцу проекта. Это handoff-пакет, а не уже полученное заключение. Заполнить
+отдельную строку для каждого источника; если в записи несколько правообладателей
+или лицензий, перечислить их раздельно. Формулировка «разрешено всё» не заменяет
+проверку точных условий конкретного источника.
+
+Для каждого решения эксперт должен зафиксировать:
+
+- своё имя/роль или квалификацию и дату проверки;
+- правообладателя, официальный документ/версию условий и ссылку на него;
+- поля, которые приложение запрашивает, сохраняет, преобразует и показывает;
+- разрешённость аналитических признаков, summaries, embeddings и RAG отдельно;
+- ограничения по attribution, кэшированию, сроку хранения, redisclosure,
+  коммерческому/публичному использованию и среде deployment;
+- итог `approved`, `restricted`, `unclear` или `prohibited` и конкретные пределы.
+
+| Код | Эксперт и дата | Правообладатель и проверенные условия / доказательство | Подтверждённые поля и действия, включая derivative analytics | Решение |
+|---|---|---|---|---|
+| openalex | — | — | — | **НЕ ПРОВЕРЕНО / BLOCKED** |
+| arxiv | — | — | — | **НЕ ПРОВЕРЕНО / BLOCKED** |
+| github | — | — | — | **НЕ ПРОВЕРЕНО / BLOCKED** |
+| gharchive | — | — | — | **НЕ ПРОВЕРЕНО / BLOCKED** |
+| crossref | — | — | — | **НЕ ПРОВЕРЕНО / BLOCKED** |
+| semantic_scholar | — | — | — | **НЕ ПРОВЕРЕНО / BLOCKED** |
+| huggingface | — | — | — | **НЕ ПРОВЕРЕНО / BLOCKED** |
+| pypi | — | — | — | **НЕ ПРОВЕРЕНО / BLOCKED** |
+| npm | — | — | — | **НЕ ПРОВЕРЕНО / BLOCKED** |
+| gdelt | — | — | — | **НЕ ПРОВЕРЕНО / BLOCKED** |
+| patentsview | — | — | — | **НЕ ПРОВЕРЕНО / BLOCKED** |
+| cordis | — | — | — | **НЕ ПРОВЕРЕНО / BLOCKED** |
+| epo_ops | — | — | — | **НЕ ПРОВЕРЕНО / BLOCKED** |
+
+После получения заключения переносить в Source License Record только
+подтверждённые значения: источник/лицензия, ссылка на доказательство, точный
+разрешённый scope, ответственный проверяющий, дата и отдельное значение
+`allows_derivative_analytics`. Если любой пункт спорный или отсутствует,
+соответствующая строка остаётся заблокированной.
+
+## Машинно-проверяемый scope и срок действия решения
+
+Для live-коннектора поля `license_approved_fields` должны содержать все
+нормализованные поля, объявленные его контрактом; `license_approved_operations`
+должны отдельно разрешать операции live-запроса. Контракт показывает
+`/api/v1/sources/status`. Незаполненные списки означают запрет, а не отсутствие
+ограничений. Сырые payload не сохраняются и не передаются в discovery.
+
+Проверка прав должна включать `license_review_reference`,
+`license_review_due_at`, `license_terms_version` и
+`license_reviewed_terms_version`. После обнаружения изменения официальных
+условий обновить текущую `license_terms_version`, не меняя версию, на которую
+ссылается решение: несовпадение автоматически блокирует источник. Повторное
+одобрение допустимо только после новой проверки; тогда обновляются ссылка,
+дата, срок и обе версии. Просроченный срок также блокирует запросы. Это
+сравнение реестра не отслеживает сайты автоматически: владелец прав должен
+зафиксировать обнаруженную версию условий в реестре.
+
+Статус проверки, срок и необходимые поля/операции показываются без имени
+проверяющего. Все существующие записи без новых явных подтверждений остаются
+заблокированными.

@@ -89,6 +89,19 @@ class Source(Base, TimestampMixin):
     license_type: Mapped[str | None] = mapped_column(String(128))
     license_checked_at: Mapped[date | None] = mapped_column(Date)
     license_owner: Mapped[str | None] = mapped_column(String(255))
+    license_evidence_url: Mapped[str | None] = mapped_column(Text)
+    license_scope: Mapped[str | None] = mapped_column(Text)
+    license_reviewed_by: Mapped[str | None] = mapped_column(String(255))
+    license_approved_fields: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    license_approved_operations: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    license_review_reference: Mapped[str | None] = mapped_column(Text)
+    license_review_due_at: Mapped[date | None] = mapped_column(Date)
+    license_terms_version: Mapped[str | None] = mapped_column(String(255))
+    license_reviewed_terms_version: Mapped[str | None] = mapped_column(String(255))
     allows_fulltext_storage: Mapped[bool] = mapped_column(Boolean, default=False)
     allows_embedding_storage: Mapped[bool] = mapped_column(Boolean, default=False)
     allows_rag_use: Mapped[bool] = mapped_column(Boolean, default=False)

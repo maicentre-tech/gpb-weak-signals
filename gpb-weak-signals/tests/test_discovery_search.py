@@ -15,12 +15,23 @@ from eti.discovery.search import (
     _LIMITERS,
     _attach_source_metadata,
     _allowed_source_codes,
+    _bounded_query_variants,
     _license_gate,
     _limiter_for,
+    _p0_coverage_report,
     _run_source_search,
+    _sanitize_live_normalized_document,
+    _sanitize_public_result,
+    _source_statuses,
+    BASE_LIVE_OPERATIONS,
+    EXPERT_LIVE_OPERATIONS,
+    LIVE_CONNECTOR_CONTRACTS,
+    LIVE_SEARCH_SOURCE_CODES,
+    P0_REQUIRED_SOURCE_CODES,
     execute_open_search_job,
 )
 from eti.ingestion.ratelimit import RateLimiter
+from eti.sources.base import NormalizedDocument
 from eti.sources.arxiv import ArxivConnector
 from eti.sources.gdelt import GdeltConnector
 from eti.sources.github import GitHubConnector
@@ -45,11 +56,22 @@ def test_legal_gate_allows_only_registered_connectors_with_complete_license_reco
         "license_type": "CC0",
         "license_owner": "Rights office",
         "license_checked_at": date(2026, 9, 26),
+        "license_evidence_url": "https://example.org/terms",
+        "license_scope": "Public metadata fields; aggregate analytics only",
+        "license_reviewed_by": "Authorized project rights owner",
+        "license_approved_fields": sorted(LIVE_CONNECTOR_CONTRACTS["openalex"]["fields"]),
+        "license_approved_operations": sorted(
+            BASE_LIVE_OPERATIONS | EXPERT_LIVE_OPERATIONS
+        ),
+        "license_review_reference": "review-2026-09",
+        "license_review_due_at": date(2027, 9, 26),
+        "license_terms_version": "terms-v1",
+        "license_reviewed_terms_version": "terms-v1",
         "allows_derivative_analytics": True,
     }
     assert _license_gate(approved_record) == (
         True,
-        "Source License Record заполнен; derivative analytics разрешена.",
+        "Source License Record и запрошенный scope подтверждены.",
     )
 
     incomplete_record = {**approved_record, "license_checked_at": None}
@@ -58,13 +80,183 @@ def test_legal_gate_allows_only_registered_connectors_with_complete_license_reco
     assert "не заполнен полностью" in reason
 
 
+@pytest.mark.parametrize(
+    "field",
+    ["license_evidence_url", "license_scope", "license_reviewed_by"],
+)
+def test_legal_gate_requires_owner_evidence_scope_and_reviewer(field: str) -> None:
+    approved_record = {
+        "enabled": True,
+        "license_status": "approved",
+        "license_type": "CC0",
+        "license_owner": "Rights office",
+        "license_checked_at": date(2026, 9, 26),
+        "license_evidence_url": "https://example.org/terms",
+        "license_scope": "Public metadata fields; aggregate analytics only",
+        "license_reviewed_by": "Authorized project rights owner",
+        "license_approved_fields": sorted(LIVE_CONNECTOR_CONTRACTS["openalex"]["fields"]),
+        "license_approved_operations": sorted(
+            BASE_LIVE_OPERATIONS | EXPERT_LIVE_OPERATIONS
+        ),
+        "license_review_reference": "review-2026-09",
+        "license_review_due_at": date(2027, 9, 26),
+        "license_terms_version": "terms-v1",
+        "license_reviewed_terms_version": "terms-v1",
+        "allows_derivative_analytics": True,
+    }
+
+    allowed, reason = _license_gate({**approved_record, field: " "})
+
+    assert allowed is False
+    assert "не заполнен полностью" in reason
+
+
+def test_public_live_search_is_hard_limited_to_the_four_requested_sources() -> None:
+    assert _allowed_source_codes(
+        {
+            "openalex",
+            "arxiv",
+            "github",
+            "gdelt",
+            "crossref",
+            "semantic_scholar",
+            "pypi",
+            "unknown",
+        }
+    ) == {"openalex", "arxiv", "github", "gdelt"}
+
+
+def test_source_statuses_separate_adapter_rights_live_scope_and_query() -> None:
+    approved_record = {
+        "enabled": True,
+        "license_status": "approved",
+        "license_type": "CC0",
+        "license_owner": "Rights office",
+        "license_checked_at": date(2026, 9, 26),
+        "license_evidence_url": "https://example.org/terms",
+        "license_scope": "Public metadata fields; aggregate analytics only",
+        "license_reviewed_by": "Authorized project rights owner",
+        "license_approved_fields": sorted(LIVE_CONNECTOR_CONTRACTS["openalex"]["fields"]),
+        "license_approved_operations": sorted(
+            BASE_LIVE_OPERATIONS | EXPERT_LIVE_OPERATIONS
+        ),
+        "license_review_reference": "review-2026-09",
+        "license_review_due_at": date(2027, 9, 26),
+        "license_terms_version": "terms-v1",
+        "license_reviewed_terms_version": "terms-v1",
+        "allows_derivative_analytics": True,
+    }
+    statuses = _source_statuses(
+        {"openalex": approved_record, "crossref": approved_record},
+        {"openalex"},
+        searched_sources={"openalex"},
+    )
+    by_code = {item["code"]: item for item in statuses}
+
+    assert set(by_code) == LIVE_SEARCH_SOURCE_CODES | P0_REQUIRED_SOURCE_CODES
+    assert all(
+        {
+            "adapter_implemented",
+            "legal_gate_passed",
+            "live_search_enabled",
+            "query_executed",
+        }
+        <= item.keys()
+        for item in by_code.values()
+    )
+    assert by_code["openalex"] == {
+        "code": "openalex",
+        "status": "searched",
+        "message": "Поиск выполнен через зарегистрированный адаптер.",
+        "adapter_implemented": True,
+        "legal_gate_passed": True,
+        "live_search_enabled": True,
+        "query_executed": True,
+        "rights_review_status": "current",
+        "license_review_due_at": "2027-09-26",
+        "requested_fields": sorted(LIVE_CONNECTOR_CONTRACTS["openalex"]["fields"]),
+        "required_operations": sorted(BASE_LIVE_OPERATIONS),
+        "expert_operations": sorted(EXPERT_LIVE_OPERATIONS),
+        "expert_processing_ready": True,
+    }
+    assert by_code["crossref"]["status"] == "blocked"
+    assert by_code["crossref"]["adapter_implemented"] is True
+    assert by_code["crossref"]["legal_gate_passed"] is True
+    assert by_code["crossref"]["live_search_enabled"] is False
+    assert by_code["crossref"]["query_executed"] is False
+    assert "ограниченный live-набор" in by_code["crossref"]["message"]
+    assert by_code["pypi"]["adapter_implemented"] is True
+    assert by_code["pypi"]["legal_gate_passed"] is False
+
+
+def test_p0_coverage_includes_all_required_sources_and_separates_live_scope() -> None:
+    coverage, warnings = _p0_coverage_report(
+        legally_approved_codes={"openalex"},
+        searched_sources={"openalex"},
+    )
+
+    assert coverage["p0_required"] == sorted(P0_REQUIRED_SOURCE_CODES)
+    assert coverage["p0_registered"] == sorted(P0_REQUIRED_SOURCE_CODES)
+    assert coverage["p0_legal_approved"] == ["openalex"]
+    assert coverage["p0_live_enabled"] == ["openalex"]
+    assert coverage["p0_searched"] == ["openalex"]
+    assert coverage["p0_missing_adapters"] == []
+    assert coverage["p0_not_approved"] == sorted(P0_REQUIRED_SOURCE_CODES - {"openalex"})
+    assert coverage["p0_outside_live_scope"] == sorted(
+        P0_REQUIRED_SOURCE_CODES - LIVE_SEARCH_SOURCE_CODES
+    )
+    assert any("legal gate" in warning for warning in warnings)
+    assert any("ограниченного live-набора" in warning for warning in warnings)
+
+
+def test_public_query_variants_and_payload_are_bounded() -> None:
+    plan = {
+        "search_queries": [
+            "First query",
+            " first query ",
+            "Second query",
+            "Third query",
+        ]
+    }
+    assert _bounded_query_variants(plan, "fallback") == ["First query", "Second query"]
+    assert plan["search_queries"] == ["First query", "Second query"]
+
+    result = {
+        "candidates": [
+            {
+                "candidate_id": "candidate-1",
+                "report_claims": {"problem": {"text": "source-derived text"}},
+                "evidence": [
+                    {
+                        "title": "Public title",
+                        "original_abstract": "abstract",
+                        "original_metadata": {"raw": "payload"},
+                    }
+                    for _ in range(7)
+                ],
+            },
+            {"candidate_id": "candidate-2", "evidence": []},
+        ]
+    }
+    _sanitize_public_result(result, top_limit=1)
+
+    assert len(result["candidates"]) == 1
+    candidate = result["candidates"][0]
+    assert "report_claims" not in candidate
+    assert len(candidate["evidence"]) == 5
+    assert all("original_abstract" not in item for item in candidate["evidence"])
+    assert all("original_metadata" not in item for item in candidate["evidence"])
+
+
 @pytest.mark.asyncio
 async def test_open_search_uses_only_approved_source_allowlist_and_keeps_partial_results(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[str] = []
 
-    async def fake_search(source_code, _connector_type, queries, _settings, _limit):
+    async def fake_search(
+        source_code, _connector_type, queries, _settings, _limit, **_kwargs
+    ):
         calls.append(source_code)
         assert queries == ["retrieval", "retrieval systems"]
         if source_code == "arxiv":
@@ -110,6 +302,59 @@ async def test_open_search_fails_closed_when_no_source_is_allowed() -> None:
     assert "derivative analytics" in warnings[0]
 
 
+@pytest.mark.asyncio
+async def test_open_search_reports_full_p0_coverage_when_legal_gate_blocks_all_sources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    job = SimpleNamespace(id=uuid4(), status="queued", progress={})
+
+    class FakeResult:
+        def scalar_one_or_none(self):
+            return job
+
+        def all(self):
+            return []
+
+    class FakeSession:
+        async def execute(self, _statement):
+            return FakeResult()
+
+    @asynccontextmanager
+    async def fake_session_scope():
+        yield FakeSession()
+
+    async def unexpected_search(*_args, **_kwargs):
+        pytest.fail("Live search must not run when the legal gate blocks every source.")
+
+    monkeypatch.setattr("eti.discovery.search.session_scope", fake_session_scope)
+    monkeypatch.setattr("eti.discovery.search._run_source_search", unexpected_search)
+
+    await execute_open_search_job(
+        job.id,
+        "safe test query",
+        10,
+        Settings(_env_file=None, public_read_only=True),
+    )
+
+    result = job.progress["discovery_result"]
+    coverage = result["source_coverage"]
+    assert job.status == "completed"
+    assert coverage["p0_required"] == sorted(P0_REQUIRED_SOURCE_CODES)
+    assert coverage["p0_registered"] == sorted(P0_REQUIRED_SOURCE_CODES)
+    assert coverage["p0_legal_approved"] == []
+    assert coverage["p0_live_enabled"] == []
+    assert coverage["p0_searched"] == []
+    assert coverage["p0_missing_adapters"] == []
+    assert coverage["p0_not_approved"] == sorted(P0_REQUIRED_SOURCE_CODES)
+    assert coverage["p0_outside_live_scope"] == sorted(
+        P0_REQUIRED_SOURCE_CODES - LIVE_SEARCH_SOURCE_CODES
+    )
+    assert {source["code"] for source in result["source_statuses"]} == (
+        LIVE_SEARCH_SOURCE_CODES | P0_REQUIRED_SOURCE_CODES
+    )
+    assert any("legal gate" in warning for warning in result["warnings"])
+
+
 def test_source_registry_metadata_is_attached_to_discovery_documents() -> None:
     document = DiscoveryDocument(
         document_id="openalex:1",
@@ -127,6 +372,12 @@ def test_source_registry_metadata_is_attached_to_discovery_documents() -> None:
                 "trust_reason": "Reviewed source metadata.",
                 "evidence_weight": 0.9,
                 "license_status": "approved",
+                "license_type": "CC0",
+                "license_owner": "Rights office",
+                "license_checked_at": date(2026, 9, 26),
+                "license_evidence_url": "https://example.org/terms",
+                "license_scope": "Public metadata fields; aggregate analytics only",
+                "license_reviewed_by": "Authorized project rights owner",
                 "allows_derivative_analytics": True,
             }
         },
@@ -171,6 +422,15 @@ async def test_open_search_plans_queries_maps_candidates_and_keeps_source_proven
             "CC0",
             "Rights office",
             date(2026, 9, 26),
+            "https://example.org/terms",
+            "Public metadata fields; aggregate analytics only",
+            "Authorized project rights owner",
+            sorted(LIVE_CONNECTOR_CONTRACTS["openalex"]["fields"]),
+            sorted(BASE_LIVE_OPERATIONS | EXPERT_LIVE_OPERATIONS),
+            "review-2026-09",
+            date(2027, 9, 26),
+            "terms-v1",
+            "terms-v1",
             True,
         ),
         (
@@ -183,6 +443,15 @@ async def test_open_search_plans_queries_maps_candidates_and_keeps_source_proven
             1.0,
             "approved",
             "API terms",
+            None,
+            None,
+            None,
+            None,
+            None,
+            [],
+            [],
+            None,
+            None,
             None,
             None,
             True,
@@ -225,7 +494,9 @@ async def test_open_search_plans_queries_maps_candidates_and_keeps_source_proven
             ],
         }
 
-    async def fake_source_search(queries, _settings, allowed_sources, _limit):
+    async def fake_source_search(
+        queries, _settings, allowed_sources, _limit, _approved_fields_by_source
+    ):
         assert queries == ["квантовые сенсоры", "quantum sensing"]
         assert allowed_sources == {"openalex"}
         return (
@@ -284,6 +555,14 @@ async def test_open_search_plans_queries_maps_candidates_and_keeps_source_proven
     assert result["candidate_matches"][0]["technology_id"] == str(technology_id)
     assert result["candidate_mapping_status"] == "matched"
     assert result["ontology_updated"] is False
+    coverage = result["source_coverage"]
+    assert coverage["p0_required"] == sorted(P0_REQUIRED_SOURCE_CODES)
+    assert coverage["p0_searched"] == ["openalex"]
+    assert coverage["p0_missing_adapters"] == []
+    source_statuses = {item["code"]: item for item in result["source_statuses"]}
+    assert set(source_statuses) == LIVE_SEARCH_SOURCE_CODES | P0_REQUIRED_SOURCE_CODES
+    assert source_statuses["openalex"]["query_executed"] is True
+    assert source_statuses["crossref"]["query_executed"] is False
     candidate = result["candidates"][0]
     evidence = candidate["evidence"][0]
     assert candidate["review_only"] is True

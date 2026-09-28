@@ -181,7 +181,13 @@ class SourceStatus(BaseModel):
     family: str
     adapter_implemented: bool
     live_search_ready: bool
+    expert_processing_ready: bool = False
     license_status: str
+    rights_review_status: str = "not_reviewed"
+    license_review_due_at: date | None = None
+    requested_fields: tuple[str, ...] = ()
+    required_operations: tuple[str, ...] = ()
+    expert_operations: tuple[str, ...] = ()
     enabled: bool
     documents: int
     coverage_start: date | None

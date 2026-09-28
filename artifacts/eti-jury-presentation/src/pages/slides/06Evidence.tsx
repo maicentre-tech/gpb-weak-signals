@@ -16,34 +16,42 @@ export default function EvidenceSlide() {
           <div className="flex flex-1 items-center justify-center">
             <div className="w-[37vw] rounded-[1vw] border border-line bg-bg shadow-[0_1.4vh_3vw_rgba(23,58,75,0.08)]">
               <div className="flex items-center justify-between border-b border-line px-[1.8vw] py-[1.8vh]">
-                <p className="font-display text-[1.85vw] font-semibold text-primary">Карточка технологии</p>
-                <div className="h-[0.75vh] w-[3.6vw] bg-accent" />
+                <p className="font-display text-[1.85vw] font-semibold text-primary">Карточка</p>
+                <span className="rounded-full border border-accent px-[0.7vw] py-[0.45vh] font-body text-[1.5vw] font-semibold text-accent">
+                  СХЕМА · БЕЗ ДАННЫХ
+                </span>
               </div>
               <div className="px-[1.8vw] py-[1.1vh]">
                 <div className="grid grid-cols-[1.1fr_1.8fr] gap-x-[1.4vw] border-b border-line/70 py-[1.45vh]">
                   <p className="font-body text-[1.55vw] font-semibold text-muted">URL</p>
-                  <div className="mt-[0.65vh] h-[0.8vh] w-[85%] bg-panel" />
+                  <p className="font-body text-[1.5vw] text-text">не задан</p>
                 </div>
                 <div className="grid grid-cols-[1.1fr_1.8fr] gap-x-[1.4vw] border-b border-line/70 py-[1.45vh]">
                   <p className="font-body text-[1.55vw] font-semibold text-muted">даты</p>
-                  <div className="mt-[0.65vh] h-[0.8vh] w-[58%] bg-panel" />
+                  <p className="font-body text-[1.5vw] text-text">не указаны</p>
                 </div>
                 <div className="grid grid-cols-[1.1fr_1.8fr] gap-x-[1.4vw] border-b border-line/70 py-[1.45vh]">
                   <p className="font-body text-[1.55vw] font-semibold text-muted">тип документа</p>
-                  <div className="mt-[0.65vh] h-[0.8vh] w-[67%] bg-panel" />
+                  <p className="font-body text-[1.5vw] text-text">не выбран</p>
                 </div>
                 <div className="grid grid-cols-[1.1fr_1.8fr] gap-x-[1.4vw] border-b border-line/70 py-[1.45vh]">
                   <p className="font-body text-[1.55vw] font-semibold text-muted">язык оригинала</p>
-                  <div className="mt-[0.65vh] h-[0.8vh] w-[49%] bg-panel" />
+                  <p className="font-body text-[1.5vw] text-text">не проверен</p>
                 </div>
                 <div className="grid grid-cols-[1.1fr_1.8fr] gap-x-[1.4vw] py-[1.45vh]">
                   <p className="font-body text-[1.55vw] font-semibold text-muted">семейство</p>
-                  <div className="mt-[0.65vh] h-[0.8vh] w-[73%] bg-panel" />
+                  <p className="font-body text-[1.5vw] text-text">не подтверждено</p>
                 </div>
               </div>
-              <div className="flex justify-between border-t border-line bg-panel/70 px-[1.8vw] py-[1.5vh]">
-                <span className="font-body text-[1.5vw] font-semibold text-primary">Trust level</span>
-                <span className="font-body text-[1.5vw] text-muted">scoring confidence</span>
+              <div className="grid grid-cols-2 gap-[1.5vw] border-t border-line bg-panel/70 px-[1.8vw] py-[1.2vh]">
+                <div>
+                  <p className="font-body text-[1.5vw] font-semibold text-primary">Trust level</p>
+                  <p className="font-body text-[1.5vw] text-muted">не присвоен</p>
+                </div>
+                <div>
+                  <p className="font-body text-[1.5vw] font-semibold text-primary">Scoring confidence</p>
+                  <p className="font-body text-[1.5vw] text-muted">не рассчитан</p>
+                </div>
               </div>
             </div>
           </div>

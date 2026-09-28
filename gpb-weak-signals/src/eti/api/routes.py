@@ -2,21 +2,22 @@
 
 Главное архитектурное свойство, заданное ADR-001: запрос пользователя —
 это retrieval по предрассчитанному snapshot, а не запуск пайплайна.
-Синхронный re-clustering в request path запрещён (§31). В режиме разработки
-непокрытое направление возвращает ``job_id``; публичный read-only поиск
-остаётся в пределах snapshot и не создаёт фоновые задания.
+Синхронный re-clustering в request path запрещён (§31). Публичный запрос
+возвращает готовый snapshot отдельно от ограниченного фонового live-поиска;
+экспертные изменения остаются отключены в read-only режиме.
 """
 
 from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
-from datetime import UTC, date, datetime
+from copy import deepcopy
+from datetime import UTC, date, datetime, timedelta
 from typing import TypeVar
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from eti.api.deps import get_config, get_session
@@ -49,7 +50,16 @@ from eti.db.models import (
     TechnologyMetric,
     TrendScore,
 )
-from eti.discovery.search import CONNECTORS, _license_gate, execute_open_search_job
+from eti.discovery.search import (
+    CONNECTORS,
+    LIVE_CONNECTOR_CONTRACTS,
+    P0_REQUIRED_SOURCE_CODES,
+    _license_gate,
+    _source_requirements,
+    _sanitize_public_result,
+    execute_open_search_job,
+)
+from eti.source_policy import source_review_status
 from eti.ontology.resolver import normalize_name
 from eti.rag.generator import CardContext, LlmCardGenerator, MetricCardBuilder, generate_and_verify
 from eti.rag.retrieval import retrieve_evidence
@@ -165,6 +175,126 @@ def _live_expert_search_enabled(settings: Settings) -> bool:
     )
 
 
+PUBLIC_LIVE_ACTIVE_JOB_LIMIT = 2
+PUBLIC_LIVE_SUBMISSIONS_PER_MINUTE = 20
+PUBLIC_LIVE_JOB_STALE_AFTER = timedelta(minutes=3)
+
+
+def _job_response(job: AnalysisJob, *, public_mode: bool = False) -> JobResponse:
+    progress = job.progress or {}
+    result = deepcopy(progress.get("discovery_result"))
+    if public_mode and isinstance(result, dict):
+        _sanitize_public_result(result, top_limit=15)
+    return JobResponse(
+        job_id=job.id,
+        status=str(job.status),
+        query_text=job.query_text,
+        coverage_confidence=job.coverage_confidence,
+        requested_at=job.requested_at,
+        message=(
+            job.error_detail
+            or progress.get("message")
+            or f"Статус задачи: {job.status}"
+        ),
+        result=result,
+    )
+
+
+async def _queue_public_live_search(
+    request: QueryRequest,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession,
+    settings: Settings,
+    coverage: float,
+) -> tuple[JobResponse | None, str | None]:
+    """Admit a small, database-coordinated public live-search workload."""
+    normalized_query = normalize_name(request.domain)
+    if not normalized_query:
+        return None, "После нормализации запрос пуст."
+
+    now = datetime.now(UTC)
+    bind = session.get_bind() if hasattr(session, "get_bind") else None
+    if getattr(getattr(bind, "dialect", None), "name", None) != "postgresql":
+        return None, "Публичный live-поиск недоступен без PostgreSQL-блокировки очереди."
+    # Serialize admission across API workers; row counts alone race when the
+    # active queue is empty.
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(CAST(:lock_id AS bigint))"),
+        {"lock_id": 4812048},
+    )
+
+    stale_jobs = (
+        await session.execute(
+            select(AnalysisJob)
+            .where(
+                AnalysisJob.status.in_(["queued", "running"]),
+                AnalysisJob.requested_at < now - PUBLIC_LIVE_JOB_STALE_AFTER,
+            )
+            .with_for_update()
+        )
+    ).scalars().all()
+    for stale_job in stale_jobs:
+        stale_job.status = JobStatus.FAILED
+        stale_job.completed_at = now
+        stale_job.error_code = "public_live_search_timeout"
+        stale_job.error_detail = "Публичный live-поиск превысил допустимое время ожидания."
+        stale_job.progress = {
+            "phase": "failed",
+            "message": stale_job.error_detail,
+            "discovery_result": (stale_job.progress or {}).get("discovery_result"),
+        }
+
+    duplicate = (
+        await session.execute(
+            select(AnalysisJob)
+            .where(
+                AnalysisJob.normalized_query == normalized_query,
+                AnalysisJob.status.in_(["queued", "running"]),
+                AnalysisJob.requested_at >= now - PUBLIC_LIVE_JOB_STALE_AFTER,
+            )
+            .order_by(AnalysisJob.requested_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if duplicate is not None:
+        return _job_response(duplicate, public_mode=True), None
+
+    recent_count = (
+        await session.execute(
+            select(func.count(AnalysisJob.id)).where(
+                AnalysisJob.requested_at >= now - timedelta(minutes=1)
+            )
+        )
+    ).scalar_one()
+    if recent_count >= PUBLIC_LIVE_SUBMISSIONS_PER_MINUTE:
+        return None, "Достигнут общий лимит live-поисков. Повторите запрос через минуту."
+
+    active_count = (
+        await session.execute(
+            select(func.count(AnalysisJob.id)).where(
+                AnalysisJob.status.in_(["queued", "running"]),
+                AnalysisJob.requested_at >= now - PUBLIC_LIVE_JOB_STALE_AFTER,
+            )
+        )
+    ).scalar_one()
+    if active_count >= PUBLIC_LIVE_ACTIVE_JOB_LIMIT:
+        return None, "Очередь live-поиска занята. Повторите запрос через минуту."
+
+    job = AnalysisJob(
+        query_text=request.domain,
+        normalized_query=normalized_query,
+        status=JobStatus.QUEUED,
+        coverage_confidence=coverage,
+        requested_at=now,
+    )
+    session.add(job)
+    await session.commit()
+    background_tasks.add_task(
+        execute_open_search_job, job.id, request.domain, min(request.limit, 15), settings
+    )
+    return _job_response(job), None
+
+
 @router.post("/query", response_model=QueryResponse | JobResponse)
 async def query(
     request: QueryRequest,
@@ -172,8 +302,24 @@ async def query(
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_config),
 ):
+    public_live_search = (
+        settings.public_read_only
+        and settings.public_live_search_enabled
+        and request.include_live_search
+    )
     latest_scoring_date = await _latest_scoring_date(session)
     if latest_scoring_date is None:
+        if public_live_search:
+            job, error = await _queue_public_live_search(
+                request, background_tasks, session, settings, coverage=0.0
+            )
+            if job is not None:
+                return job
+            raise HTTPException(
+                429,
+                error or "Live-поиск сейчас недоступен.",
+                headers={"Retry-After": "60"},
+            )
         raise HTTPException(503, "Расчёт ещё не выполнялся: нет ни одного snapshot")
     as_of = request.as_of_date or latest_scoring_date
     if request.as_of_date is not None:
@@ -188,6 +334,9 @@ async def query(
             raise HTTPException(404, f"Нет snapshot на {request.as_of_date}")
 
     technologies, coverage = await _match_technologies(session, request.domain)
+
+    live_search_job: JobResponse | None = None
+    live_search_warning: str | None = None
 
     live_expert_mode = _live_expert_search_enabled(settings)
     if coverage < COVERAGE_THRESHOLD and live_expert_mode:
@@ -278,9 +427,15 @@ async def query(
 
     warnings: list[str] = []
     if coverage < COVERAGE_THRESHOLD:
-        if settings.public_read_only:
+        if settings.public_read_only and not settings.public_live_search_enabled:
             warnings.append(
-                "Тема не найдена в готовом snapshot; live-поиск отключён в режиме read-only."
+                "Тема не найдена в готовом snapshot; публичный live-поиск отключён "
+                "настройкой сервера, выполнен только поиск по snapshot."
+            )
+        elif settings.public_read_only and not request.include_live_search:
+            warnings.append(
+                "Тема не найдена в готовом snapshot; live-поиск не включён для этого "
+                "запроса, выполнен только поиск по snapshot."
             )
         elif settings.environment.casefold() != "local":
             warnings.append(
@@ -309,6 +464,13 @@ async def query(
             "как есть, с пометкой passes_filters=false"
         )
 
+    if public_live_search:
+        live_search_job, live_search_warning = await _queue_public_live_search(
+            request, background_tasks, session, settings, coverage
+        )
+        if live_search_warning:
+            warnings.append(live_search_warning)
+
     return QueryResponse(
         query_id=uuid.uuid4(),
         generated_at=datetime.now(UTC),
@@ -324,29 +486,22 @@ async def query(
         has_more=has_more,
         results=results,
         warnings=warnings,
+        live_search_job=live_search_job,
     )
 
 
 @router.get("/jobs/{job_id}", response_model=JobResponse)
-async def get_job(job_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+async def get_job(
+    job_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_config),
+):
     job = (
         await session.execute(select(AnalysisJob).where(AnalysisJob.id == job_id))
     ).scalar_one_or_none()
     if job is None:
         raise HTTPException(404, "Задача не найдена")
-    return JobResponse(
-        job_id=job.id,
-        status=str(job.status),
-        query_text=job.query_text,
-        coverage_confidence=job.coverage_confidence,
-        requested_at=job.requested_at,
-        message=(
-            job.error_detail
-            or (job.progress or {}).get("message")
-            or f"Статус задачи: {job.status}"
-        ),
-        result=(job.progress or {}).get("discovery_result"),
-    )
+    return _job_response(job, public_mode=settings.public_read_only)
 
 
 @router.get("/trends/{technology_id}", response_model=TrendCardResponse)
@@ -647,15 +802,16 @@ async def sources_status(session: AsyncSession = Depends(get_session)):
     sources = (await session.execute(select(Source).order_by(Source.code))).scalars().all()
     sources_by_code = {source.code: source for source in sources}
     result = []
-    for code in sorted(set(sources_by_code) | set(CONNECTORS)):
+    for code in sorted(set(sources_by_code) | set(CONNECTORS) | P0_REQUIRED_SOURCE_CODES):
         source = sources_by_code.get(code)
         adapter_implemented = code in CONNECTORS
         if source is None:
             license_record = None
             license_status = "missing_record"
             enabled = False
-            name = getattr(CONNECTORS[code], "name", code)
-            family = str(getattr(CONNECTORS[code], "family", "unknown"))
+            connector = CONNECTORS.get(code)
+            name = getattr(connector, "name", code)
+            family = str(getattr(connector, "family", "unknown"))
         else:
             license_record = {
                 "enabled": source.enabled,
@@ -664,19 +820,42 @@ async def sources_status(session: AsyncSession = Depends(get_session)):
                 "license_type": source.license_type,
                 "license_owner": source.license_owner,
                 "license_checked_at": source.license_checked_at,
+                "license_evidence_url": source.license_evidence_url,
+                "license_scope": source.license_scope,
+                "license_reviewed_by": source.license_reviewed_by,
+                "license_approved_fields": source.license_approved_fields or [],
+                "license_approved_operations": source.license_approved_operations or [],
+                "license_review_reference": source.license_review_reference,
+                "license_review_due_at": source.license_review_due_at,
+                "license_terms_version": source.license_terms_version,
+                "license_reviewed_terms_version": source.license_reviewed_terms_version,
             }
             license_status = str(source.license_status)
             enabled = source.enabled
             name = source.name
             family = str(source.family)
 
-        legal_record_ready, legal_reason = _license_gate(license_record)
-        live_search_ready = adapter_implemented and legal_record_ready
+        legal_record_ready, legal_reason = _license_gate(license_record, code)
+        expert_ready = (
+            adapter_implemented
+            and code in LIVE_CONNECTOR_CONTRACTS
+            and _license_gate(license_record, code, expert_mode=True)[0]
+        )
+        rights_review_status, _review_reason = source_review_status(license_record)
+        requested_fields, required_operations = _source_requirements(code)
+        _expert_fields, expert_operations = _source_requirements(
+            code, expert_mode=True
+        )
+        live_search_ready = (
+            adapter_implemented
+            and code in LIVE_CONNECTOR_CONTRACTS
+            and legal_record_ready
+        )
         blockers = []
         if not legal_record_ready:
             blockers.append(legal_reason)
         if not adapter_implemented:
-            blockers.append("Для live-поиска нет зарегистрированного адаптера.")
+            blockers.append("Источник не поддерживается: поисковый адаптер отсутствует.")
         blocked = " ".join(blockers) or None
 
         documents = 0
@@ -713,7 +892,19 @@ async def sources_status(session: AsyncSession = Depends(get_session)):
                 family=family,
                 adapter_implemented=adapter_implemented,
                 live_search_ready=live_search_ready,
+                expert_processing_ready=expert_ready,
                 license_status=license_status,
+                rights_review_status=rights_review_status,
+                license_review_due_at=(
+                    license_record.get("license_review_due_at")
+                    if license_record
+                    else None
+                ),
+                requested_fields=tuple(sorted(requested_fields)),
+                required_operations=tuple(sorted(required_operations)),
+                expert_operations=tuple(
+                    sorted(expert_operations - required_operations)
+                ),
                 enabled=enabled,
                 documents=documents,
                 coverage_start=coverage.coverage_start_date if coverage else None,
@@ -756,6 +947,10 @@ async def health(
             technologies=0,
             latest_scoring=None,
             public_read_only=settings.public_read_only,
+            review_writes_enabled=settings.expert_review_writes_available,
+            public_live_search_enabled=(
+                settings.public_read_only and settings.public_live_search_enabled
+            ),
         )
 
     documents = (await session.execute(select(func.count(Document.id)))).scalar_one()
@@ -767,4 +962,8 @@ async def health(
         technologies=technologies,
         latest_scoring=await _latest_scoring_date(session),
         public_read_only=settings.public_read_only,
+        review_writes_enabled=settings.expert_review_writes_available,
+        public_live_search_enabled=(
+            settings.public_read_only and settings.public_live_search_enabled
+        ),
     )
